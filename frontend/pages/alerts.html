@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alertas - Agrosilo</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-warehouse"></i>
+                <h1>Agrosilo</h1>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="dashboard.html" class="nav-item">
+                    <i class="fas fa-tachometer-alt"></i>
+                    Dashboard
+                </a>
+                <a href="alerts.html" class="nav-item active">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Alertas
+                    <span class="alert-badge" id="alertCount">0</span>
+                </a>
+                <a href="analysis.html" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    Análise
+                </a>
+                <a href="silos.html" class="nav-item">
+                    <i class="fas fa-warehouse"></i>
+                    Silos
+                </a>
+                <a href="#" class="nav-item" id="usersMenuItem" style="display: none;">
+                    <i class="fas fa-users"></i>
+                    Usuários
+                </a>
+            </nav>
+            
+            <div class="header-actions">
+                <div class="user-info">
+                    <span id="userName">Usuário</span>
+                    <span id="userRole" class="user-role">user</span>
+                </div>
+                <button class="btn btn-outline" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Sair
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h2>Alertas do Sistema</h2>
+                <p>Gerencie e visualize todos os alertas gerados pelos seus silos.</p>
+            </div>
+            
+            <div class="form-group" style="align-self:end; display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="applyFilters()">
+                <i class="fas fa-filter"></i>
+                Aplicar Filtros
+              </button>
+
+              <!-- NOVOS -->
+            <button class="btn btn-outline" onclick="downloadAlertsCSV()">
+                <i class="fas fa-file-csv"></i> Baixar CSV
+                </button>
+                <button class="btn btn-outline" onclick="downloadAlertsPDF()">
+                <i class="fas fa-file-pdf"></i> PDF Técnico
+            </button>
+            </div>
+            <!-- Filter and Search -->
+            <div class="filter-bar">
+                <div class="form-group">
+                    <label for="alertLevelFilter">Nível:</label>
+                    <select id="alertLevelFilter" class="form-control">
+                        <option value="all">Todos</option>
+                        <option value="caution">Atenção Moderada</option> 
+                        <option value="warning">Atenção</option>
+                        <option value="critical">Crítico</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="siloFilter">Silo:</label>
+                    <select id="siloFilter" class="form-control">
+                        <option value="all">Todos os Silos</option>
+                        <!-- Silos serão carregados aqui dinamicamente -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dateRangeFilter">Período:</label>
+                    <select id="dateRangeFilter" class="form-control">
+                        <option value="all">Todo o Período</option>
+                        <option value="today">Hoje</option>
+                        <option value="last7days">Últimos 7 Dias</option>
+                        <option value="last30days">Últimos 30 Dias</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="applyFilters()">
+                    <i class="fas fa-filter"></i>
+                    Aplicar Filtros
+                </button>
+            </div>
+
+            <!-- Alerts List -->
+            <div class="alerts-section">
+                <div class="section-header">
+                    <h3>Lista de Alertas</h3>
+                    <button class="btn btn-outline" onclick="refreshAlerts()">
+                        <i class="fas fa-sync-alt"></i>
+                        Atualizar
+                    </button>
+                </div>
+                <div class="alerts-list" id="allAlertsList">
+                    <!-- Alertas serão carregados aqui dinamicamente -->
+                </div>
+                <div id="paginationControls" class="pagination-controls">
+                    <!-- Controles de paginação aqui -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="notification-container"></div>
+
+    <!-- Scripts -->
+    <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>   <script src="../js/auth.js"></script>
+    <script src="../js/alerts.js"></script> 
+</body>
+</html> 

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Agrosilo</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-warehouse"></i>
+                <h1>Agrosilo</h1>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="dashboard.html" class="nav-item active">
+                    <i class="fas fa-tachometer-alt"></i>
+                    Dashboard
+                </a>
+                <a href="alerts.html" class="nav-item">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Alertas
+                    <span class="alert-badge" id="alertCount">0</span>
+                </a>
+                <a href="analysis.html" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    Análise
+                </a>
+                <a href="silos.html" class="nav-item">
+                    <i class="fas fa-warehouse"></i>
+                    Silos
+                </a>
+                <a href="#" class="nav-item" id="usersMenuItem" style="display: none;">
+                    <i class="fas fa-users"></i>
+                    Usuários
+                </a>
+            </nav>
+            
+            <div class="header-actions">
+                <div class="user-info">
+                    <span id="userName">Usuário</span>
+                    <span id="userRole" class="user-role">user</span>
+                </div>
+                <button class="btn btn-outline" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Sair
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h2>Dashboard</h2>
+                <p>Visão geral em tempo real dos seus silos</p>
+                <div class="last-update">
+                    <i class="fas fa-clock"></i>
+                    Última atualização: <span id="lastUpdate">--</span>
+                </div>
+            </div>
+
+            <!-- Status Cards -->
+            <div class="status-cards">
+                <div class="status-card">
+                    <div class="status-icon temperature">
+                        <i class="fas fa-thermometer-half"></i>
+                    </div>
+                    <div class="status-info">
+                        <h3>Temperatura</h3>
+                        <div class="status-value" id="avgTemperature">--°C</div>
+                        <div class="status-trend" id="temperatureTrend">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>+2.3°C</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="status-card">
+                    <div class="status-icon humidity">
+                        <i class="fas fa-tint"></i>
+                    </div>
+                    <div class="status-info">
+                        <h3>Umidade</h3>
+                        <div class="status-value" id="avgHumidity">--%</div>
+                        <div class="status-trend" id="humidityTrend">
+                            <i class="fas fa-arrow-down"></i>
+                            <span>-1.2%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="status-card">
+                    <div class="status-icon silos">
+                        <i class="fas fa-warehouse"></i>
+                    </div>
+                    <div class="status-info">
+                        <h3>Silos Ativos</h3>
+                        <div class="status-value" id="activeSilos">--</div>
+                        <div class="status-trend">
+                            <span id="totalSensors">-- sensores</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="status-card">
+                    <div class="status-icon alerts">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="status-info">
+                        <h3>Alertas Ativos</h3>
+                        <div class="status-value" id="activeAlerts">--</div>
+                        <div class="status-trend" id="alertsTrend">
+                            <span>Últimas 24h</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Charts -->
+            <div class="quick-charts">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Temperatura - Últimas 24h</h3>
+                        <div class="chart-controls">
+                            <button class="btn-small" onclick="refreshChart('temperature')">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="temperatureChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Umidade - Últimas 24h</h3>
+                        <div class="chart-controls">
+                            <button class="btn-small" onclick="refreshChart('humidity')">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="humidityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Silos Overview -->
+            <div class="silos-overview">
+                <div class="section-header">
+                    <h3>Visão Geral dos Silos</h3>
+                    <button class="btn btn-primary" onclick="showAddSiloModal()">
+                        <i class="fas fa-plus"></i>
+                        Adicionar Silo
+                    </button>
+                </div>
+                
+                <div class="silos-grid" id="silosGrid">
+                    <!-- Silos serão carregados aqui dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Recent Alerts -->
+            <div class="recent-alerts">
+                <div class="section-header">
+                    <h3>Alertas Recentes</h3>
+                    <a href="alerts.html" class="btn btn-outline">
+                        Ver Todos
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                
+                <div class="alerts-list" id="recentAlertsList">
+                    <!-- Alertas recentes serão carregados aqui -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal para Adicionar Silo -->
+    <div id="addSiloModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Adicionar Novo Silo</h3>
+                <span class="close" onclick="closeAddSiloModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addSiloForm">
+                    <div class="form-group">
+                        <label for="siloName">Nome do Silo</label>
+                        <input type="text" id="siloName" name="name" required placeholder="Ex: Silo A1">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="siloLocation">Localização</label>
+                        <input type="text" id="siloLocation" name="location" placeholder="Ex: Galpão Norte">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Sensores</label>
+                        <div class="sensors-config">
+                            <div class="sensor-item">
+                                <input type="checkbox" id="tempSensor" name="sensors" value="temperature">
+                                <label for="tempSensor">
+                                    <i class="fas fa-thermometer-half"></i>
+                                    Temperatura
+                                </label>
+                            </div>
+                            <div class="sensor-item">
+                                <input type="checkbox" id="humSensor" name="sensors" value="humidity">
+                                <label for="humSensor">
+                                    <i class="fas fa-tint"></i>
+                                    Umidade
+                                </label>
+                            </div>
+                            <div class="sensor-item">
+                                <input type="checkbox" id="presSensor" name="sensors" value="pressure">
+                                <label for="presSensor">
+                                    <i class="fas fa-gauge-high"></i>
+                                    Pressão Atmosférica
+                                </label>
+                            </div>
+                            <div class="sensor-item">
+                                <input type="checkbox" id="co2Sensor" name="sensors" value="co2">
+                                <label for="co2Sensor">
+                                    <i class="fas fa-smog"></i>
+                                    Gás CO2
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeAddSiloModal()">
+                    Cancelar
+                </button>
+                <button type="submit" form="addSiloForm" class="btn btn-primary">
+                    <i class="fas fa-plus"></i>
+                    Adicionar Silo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="notification-container"></div>
+
+    <!-- Scripts -->
+    <script src="../js/config.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/dashboard.js"></script>
+</body>
+</html>
+

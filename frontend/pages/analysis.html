@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Análise - Agrosilo</title>
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/dashboard.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+  <!-- Chart.js (core) + Adapter para eixo de tempo -->
+  <!-- IMPORTANTE: o adapter precisa vir DEPOIS do Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3" defer></script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="logo">
+        <i class="fas fa-warehouse"></i>
+        <h1>Agrosilo</h1>
+      </div>
+
+      <nav class="nav-menu">
+        <a href="dashboard.html" class="nav-item"><i class="fas fa-tachometer-alt"></i>Dashboard</a>
+        <a href="alerts.html" class="nav-item"><i class="fas fa-exclamation-triangle"></i>Alertas <span class="alert-badge" id="alertCount">0</span></a>
+        <a href="analysis.html" class="nav-item active"><i class="fas a fa-chart-line"></i>Análise</a>
+        <a href="silos.html" class="nav-item"><i class="fas fa-warehouse"></i>Silos</a>
+        <a href="#" class="nav-item" id="usersMenuItem" style="display:none;"><i class="fas fa-users"></i>Usuários</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="user-info">
+          <span id="userName">Usuário</span>
+          <span id="userRole" class="user-role">user</span>
+        </div>
+        <button class="btn btn-outline" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i> Sair
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="main-content">
+    <div class="container">
+
+      <!-- Page Header -->
+      <div class="page-header">
+        <h2>Análise de Dados Históricos</h2>
+        <p>Visualize tendências, compare períodos e exporte relatórios técnicos.</p>
+      </div>
+
+      <!-- Filtros -->
+      <div class="filter-bar">
+        <div class="form-group">
+          <label for="siloSelect">Silo:</label>
+          <select id="siloSelect" class="form-control">
+            <option value="">Selecione um Silo</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="sensorTypeSelect">Tipo de Sensor:</label>
+          <select id="sensorTypeSelect" class="form-control">
+            <option value="temperature">Temperatura</option>
+            <option value="humidity">Umidade</option>
+            <option value="pressure">Pressão Atmosférica</option>
+            <option value="co2">Gás CO2</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="dateRangeSelect">Período:</label>
+          <select id="dateRangeSelect" class="form-control">
+            <option value="24h">Últimas 24h</option>
+            <option value="7d">Últimos 7 dias</option>
+            <option value="30d">Últimos 30 dias</option>
+            <option value="all">Todo o período</option>
+            <option value="custom">Personalizado</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="customDates" style="display:none;">
+          <label>Personalizado:</label>
+          <div style="display:flex; gap:8px;">
+            <input type="datetime-local" id="startInput" class="form-control" />
+            <input type="datetime-local" id="endInput" class="form-control" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="compareToggle">Comparar período anterior?</label>
+          <select id="compareToggle" class="form-control">
+            <option value="off">Não</option>
+            <option value="on">Sim</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" id="btnGenerate">
+          <i class="fas fa-chart-line"></i> Gerar Gráfico
+        </button>
+        <button class="btn btn-outline" id="btnCSV">
+          <i class="fas fa-file-csv"></i> Exportar CSV
+        </button>
+        <button class="btn btn-outline" id="btnPDF">
+          <i class="fas fa-file-pdf"></i> PDF Técnico
+        </button>
+      </div>
+
+      <!-- KPIs -->
+      <div class="card">
+        <div class="card-header"><h3>Indicadores</h3></div>
+        <div class="card-body kpi-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;">
+          <div class="kpi"><div class="kpi-title">Mínimo</div><div class="kpi-value" id="kpiMin">—</div></div>
+          <div class="kpi"><div class="kpi-title">Média</div><div class="kpi-value" id="kpiMean">—</div></div>
+          <div class="kpi"><div class="kpi-title">Mediana</div><div class="kpi-value" id="kpiMedian">—</div></div>
+          <div class="kpi"><div class="kpi-title">p95</div><div class="kpi-value" id="kpiP95">—</div></div>
+          <div class="kpi"><div class="kpi-title">Máximo</div><div class="kpi-value" id="kpiMax">—</div></div>
+          <div class="kpi"><div class="kpi-title">σ (Desvio)</div><div class="kpi-value" id="kpiStd">—</div></div>
+        </div>
+      </div>
+
+      <!-- Gráfico principal -->
+      <div class="charts-section card">
+        <div class="card-header"><h3>Série Temporal</h3></div>
+        <div class="card-body" style="height:420px;">
+          <canvas id="sensorChart"></canvas>
+          <div id="chartEmptyState" class="empty-state" style="display:none;">
+            <i class="fas fa-chart-area"></i>
+            <h3>Selecione um silo e sensor para visualizar os dados.</h3>
+            <p>Os dados históricos serão exibidos aqui.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- (Opcional futuro) Correlação -->
+      <!--
+      <div class="card">
+        <div class="card-header"><h3>Correlação (Umidade × Temperatura)</h3></div>
+        <div class="card-body" style="height:360px;">
+          <canvas id="scatterChart"></canvas>
+        </div>
+      </div>
+      -->
+
+    </div>
+  </main>
+
+  <!-- Notifications -->
+  <div id="notificationContainer" class="notification-container"></div>
+
+  <!-- Scripts do app (ordem importa). Use defer para respeitar a ordem sem bloquear a UI -->
+  <script src="../js/config.js" defer></script>
+  <script src="../js/auth.js" defer></script>
+  <script src="../js/utils.js" defer></script>
+  <script src="../js/analysis.js" defer></script>
+</body>
+</html>

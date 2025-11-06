@@ -1,0 +1,36 @@
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache/
+.venv/
+.env
+
+# ---- FastAPI / Uvicorn ----
+*.log
+
+# ---- Node ----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
+dist/
+build/
+
+# ---- Frontend assets ----
+.DS_Store
+*.map
+
+# ---- VSCode ----
+.vscode/
+.history/
+
+# ---- OS/Editor ----
+Thumbs.db
+.idea/
+*.swp
+
+# ---- Project specific ----
+agrosilo-ts-pipeline.zip
