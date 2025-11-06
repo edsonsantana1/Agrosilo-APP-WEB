@@ -1,0 +1,21 @@
+@"
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+*/node_modules/
+
+# Env / secrets
+.env
+*.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.vscode/
+.DS_Store
+Thumbs.db
+"@ | Set-Content -Encoding UTF8 .gitignore
