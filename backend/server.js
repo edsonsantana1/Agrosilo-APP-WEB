@@ -2,8 +2,9 @@ require('dotenv').config();
 const express  = require('express');
 const mongoose = require('mongoose');
 const cors     = require('cors');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
-// Rotas
+// Rotas (Node)
 const authRoutes        = require('./routes/auth');
 const userRoutes        = require('./routes/users');
 const siloRoutes        = require('./routes/silos');
@@ -12,19 +13,17 @@ const alertRoutes       = require('./routes/alerts');
 const reportRoutes      = require('./routes/reports');
 const thingSpeakRoutes  = require('./routes/thingspeak');
 const telegramRoutes    = require('./routes/telegram');
-const analysisRoutes    = require('./routes/analysisRoutes');
+// const analysisRoutes  = require('./routes/analysisRoutes'); // ← FastAPI assume /analysis
 const iotRoutes         = require('./routes/iot');
 const thresholdsRoutes  = require('./routes/thresholds');
 
-// agendar job de alertas a partir do assessment
+// Jobs
 const { run: runAlertFromAssessment } = require('./jobs/alertFromAssessment');
 setInterval(runAlertFromAssessment, 60 * 1000); // a cada 1 minuto
 
-// Jobs
 const { startAlertNotifierJob } = require('./jobs/alertNotifier');
 
-// **Garantimos a coleção de leituras como Time Series + índice único**
-// (é no models/reading.js que criamos a coleção "readings")
+// Garantia de time-series
 const { ensureTimeSeries } = require('./models/reading');
 
 // Middlewares de auth
@@ -33,18 +32,16 @@ const { auth, adminAuth } = require('./middleware/auth');
 const app  = express();
 const PORT = process.env.PORT || 4000;
 
-/* ---------- Middlewares globais ---------- */
+// ========= Middlewares globais =========
 app.use(cors());
-app.use(express.json({ limit: '1mb' })); // payload enxuto para IoT
+app.use(express.json({ limit: '1mb' }));
 
-/* ---------- Conexão MongoDB ---------- */
-// Obs.: no Mongoose >= 6 não precisa dos options useNewUrlParser/useUnifiedTopology
+// ========= Conexão MongoDB =========
 mongoose
   .connect(process.env.MONGODB_URI)
   .then(async () => {
     console.log('Connected to MongoDB');
 
-    // Cria (se não existir) a coleção timeseries "readings" + índice {sensor, ts} único
     try {
       await ensureTimeSeries();
       console.log('Time Series collection "readings" pronta.');
@@ -52,42 +49,73 @@ mongoose
       console.error('Falha ao preparar time series:', e);
     }
 
-    // Inicia job de notificações
     startAlertNotifierJob();
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error);
   });
 
-// server.js (trecho de rotas)
+// ========= Rotas =========
 
-// Rotas públicas IoT (proteção por x-api-key via iotAuth)
+// IoT pública (proteja por x-api-key no próprio router, se aplicável)
 app.use('/api/iot', iotRoutes);
 
-// 🔓 Rotas de autenticação DEVEM ser públicas!
+// Auth pública
 app.use('/api/auth', authRoutes);
 
-// 🔐 Rotas protegidas por JWT
+// Rotas protegidas por JWT
 app.use('/api/users', auth, adminAuth, userRoutes);
 app.use('/api/silos', auth, siloRoutes);
 app.use('/api/sensors', auth, sensorRoutes);
 app.use('/api/alerts', auth, alertRoutes);
 app.use('/api/reports', auth, reportRoutes);
 app.use('/api/thingspeak', auth, thingSpeakRoutes);
-app.use('/api/telegram', telegramRoutes); // se quiser, pode adicionar 'auth' aqui
-app.use('/api/analysis', auth, analysisRoutes);
+app.use('/api/telegram', telegramRoutes); // adicione 'auth' se desejar
 app.use('/api/thresholds', auth, thresholdsRoutes);
 app.use('/api/policy', require('./routes/policy'));
 
-// Healthcheck simples (útil p/ monitor/uptime)
+// ========= Proxy para FastAPI (/api/analysis → FASTAPI_TARGET/analysis) =========
+const FASTAPI_TARGET = process.env.FASTAPI_TARGET || 'http://127.0.0.1:8000';
+
+app.use(
+  '/api/analysis',
+  auth, // mantém proteção JWT no gateway
+  createProxyMiddleware({
+    target: FASTAPI_TARGET,
+    changeOrigin: true,
+    // /api/analysis/... → /analysis/...
+    pathRewrite: { '^/api': '' },
+    // encaminha o header Authorization para a FastAPI
+    onProxyReq: (proxyReq, req) => {
+      const authHeader = req.headers['authorization'];
+      if (authHeader) proxyReq.setHeader('authorization', authHeader);
+      proxyReq.setHeader('x-forwarded-host', req.headers.host || '');
+      proxyReq.setHeader('x-forwarded-proto', req.protocol || 'http');
+    },
+    // aumenta tolerância para agregações/relatórios
+    proxyTimeout: 30_000,
+    timeout: 30_000,
+    // logs úteis de debug
+    logLevel: 'warn',
+    onError(err, req, res) {
+      console.error('[analysis-proxy] error:', err?.message || err);
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'Bad Gateway (analysis proxy)' });
+      }
+    },
+  })
+);
+
+// Healthcheck
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-/* ---------- Subida do servidor ---------- */
+// ========= Subida =========
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`FastAPI target for /api/analysis → ${FASTAPI_TARGET}`);
 });
 
-/* ---------- Encerramento gracioso ---------- */
+// ========= Encerramento gracioso =========
 function gracefulShutdown(signal) {
   console.log(`[${signal}] closing server...`);
   server.close(() => {

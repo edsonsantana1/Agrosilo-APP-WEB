@@ -1,14 +1,8 @@
 /**
- * analysis.js (hotfix + boas práticas de série temporal)
+ * analysis.js (série temporal + comparativo mensal multi-ano)
  *
- * Melhorias principais:
- * - (GRÁFICO) Converte timestamp -> milissegundos em fetchHistory (melhor para Chart.js TimeScale)
- * - (GRÁFICO) Define parsing explícito { xAxisKey:'x', yAxisKey:'y' } e ativa decimação min-max
- * - (GRÁFICO) Usa spanGaps:true para evitar "buracos" desconexos no traçado
- * - (GRÁFICO) Ajusta time.unit dinamicamente (24h -> hour, 7d/30d/all -> day)
- * - KPIs seguros contra undefined/NaN (safeFmt) e computeStats robusto
- * - onGenerate limpa estado quando não há dados
- * - Export PDF/CSV tratam 404 com mensagem do servidor
+ * - Mantém toda a lógica anterior da série temporal (KPIs, exportações, etc.).
+ * - Adiciona: Tabela + Gráfico por mês/ano (igual à foto 1), via /analysis/monthly.
  */
 
 (function () {
@@ -57,6 +51,7 @@
 
   // ---------- Estado ----------
   let lineChart = null;
+  let monthlyChart = null;
 
   // ---------- Boot ----------
   document.addEventListener("DOMContentLoaded", () => {
@@ -91,6 +86,9 @@
     document.getElementById("btnGenerate")?.addEventListener("click", onGenerate);
     document.getElementById("btnCSV")?.addEventListener("click", onExportCSV);
     document.getElementById("btnPDF")?.addEventListener("click", onExportPDF);
+
+    // NOVO: comparativo multi-ano
+    document.getElementById("btnYearly")?.addEventListener("click", loadMonthlyComparison);
   }
 
   // ---------- Silos ----------
@@ -150,7 +148,7 @@
     return { start: null, end: null, durMs: 0 }; // all
   }
 
-  // ---------- Ações ----------
+  // ---------- Série temporal (padrão) ----------
   async function onGenerate() {
     const siloId = document.getElementById("siloSelect")?.value;
     const sensorType = document.getElementById("sensorTypeSelect")?.value;
@@ -174,10 +172,6 @@
         return;
       }
 
-      // (Opcional) Log de sanidade:
-      // console.log('[analysis] pontos:', data.length, 'primeiro:', data[0], 'último:', data[data.length-1]);
-
-      // dataset principal
       const mainDs = toLineDataset(data, sensorType, "Atual");
 
       // KPIs
@@ -215,7 +209,7 @@
 
     const q = buildQueryParams(getPeriodSelection());
     const apiBase = (window.API_CONFIG?.baseURL || "http://localhost:4000/api");
-    const url = `${apiBase}/analysis/export.csv?siloId=${encodeURIComponent(siloId)}&sensorType=${encodeURIComponent(sensorType)}${q}`;
+    const url = `${apiBase}/analysis/export.csv?siloId=${encodeURIComponent(siloId)}&type=${encodeURIComponent(sensorType)}${q}`;
 
     try {
       U.notify("info", "Gerando CSV...");
@@ -249,7 +243,7 @@
 
     const q = buildQueryParams(getPeriodSelection());
     const apiBase = (window.API_CONFIG?.baseURL || "http://localhost:4000/api");
-    const url = `${apiBase}/analysis/report?siloId=${encodeURIComponent(siloId)}&sensorType=${encodeURIComponent(sensorType)}${q}`;
+    const url = `${apiBase}/analysis/report?siloId=${encodeURIComponent(siloId)}&type=${encodeURIComponent(sensorType)}${q}`;
 
     try {
       U.notify("info", "Gerando PDF técnico...");
@@ -296,8 +290,7 @@
     const raw = await authManager.makeRequest(url);
     if (!Array.isArray(raw)) return [];
 
-    // Normaliza: timestamp/value -> { x:ms, y:number } (guardamos como t/v internamente)
-    // IMPORTANTE: timestamp -> milissegundos (número) para o time scale do Chart.js
+    // Normaliza: timestamp/value -> { x:ms, y:number }
     return raw
       .filter(p => p && p.timestamp && p.value != null)
       .map(p => ({
@@ -347,14 +340,13 @@
     });
   }
 
-  // ---------- Chart ----------
+  // ---------- Chart (série temporal) ----------
   function toLineDataset(points, sensorType, label, dashed = false) {
     const cfg = U.getSensorConfig(sensorType);
-    const rgb = cfg.color; // "rgb(r,g,b)"
+    const rgb = cfg.color;
     const rgba = rgb.replace("rgb", "rgba").replace(")", ", 0.2)");
     return {
       label: label || `${cfg.displayName} (${cfg.unit})`,
-      // p.t já está em milissegundos; o Chart.js TimeScale entende números
       data: points.map(p => ({ x: p.t, y: p.v })),
       borderColor: rgb,
       backgroundColor: rgba,
@@ -363,14 +355,12 @@
       fill: true,
       tension: 0.25,
       borderDash: dashed ? [6, 6] : [],
-      spanGaps: true // evita "quebras" em buracos da série
+      spanGaps: true
     };
   }
 
-  // ajuda a escolher o time.unit
   function unitByRange(r) {
     if (r === '24h') return 'hour';
-    // 7d, 30d, all/custom -> dia
     return 'day';
   }
 
@@ -387,9 +377,8 @@
       type: "line",
       data: { datasets },
       options: {
-        // Dizer explicitamente quais chaves usar:
         parsing: { xAxisKey: 'x', yAxisKey: 'y' },
-        normalized: true, // melhora performance em grandes séries
+        normalized: true,
         responsive: true,
         maintainAspectRatio: false,
         scales: {
@@ -407,7 +396,6 @@
           }
         },
         plugins: {
-          // Reduz pontos automaticamente em janelas longas preservando picos/vales
           decimation: { enabled: true, algorithm: 'min-max' },
           legend: { position: "top" },
           tooltip: {
@@ -433,4 +421,127 @@
   }
   function hideChartEmptyState() { showChartEmptyState(false); }
 
+  // =====================================================================
+  // ===================== COMPARATIVO MENSAL MULTI-ANO ===================
+  // =====================================================================
+
+  const YEAR_COLORS = [
+    "rgb(54, 162, 235)",
+    "rgb(255, 99, 132)",
+    "rgb(255, 159, 64)",
+    "rgb(75, 192, 192)",
+    "rgb(153, 102, 255)",
+    "rgb(201, 203, 207)"
+  ];
+
+  async function fetchMonthlySeries(siloId, sensorType, yearsCSV = null, last = 3, startISO = null, endISO = null) {
+    const params = new URLSearchParams({ siloId, type: sensorType });
+    if (yearsCSV) params.set("years", yearsCSV);
+    else params.set("last", String(last));
+    if (startISO) params.set("start", startISO);
+    if (endISO) params.set("end", endISO);
+
+    // Mesmo host/proxy das outras rotas
+    return authManager.makeRequest(`/analysis/monthly?${params.toString()}`);
+  }
+
+  function renderMonthlyTable(payload) {
+    const thead = document.getElementById("monthlyTableHead");
+    const tbody = document.getElementById("monthlyTableBody");
+    if (!thead || !tbody) return;
+
+    const years = payload.years || [];
+    thead.innerHTML = `
+      <tr>
+        <th style="text-align:left;padding:6px;border-bottom:1px solid #ddd;">Mês</th>
+        ${years.map(y => `<th style="text-align:right;padding:6px;border-bottom:1px solid #ddd;">${y}</th>`).join("")}
+      </tr>
+    `;
+
+    tbody.innerHTML = (payload.table || []).map(row => {
+      const cols = years.map(y => {
+        const v = row[String(y)];
+        return `<td style="text-align:right;padding:6px;border-bottom:1px solid #f0f0f0;">${(v==null)? "—" : v.toFixed(2)}</td>`;
+      }).join("");
+      return `
+        <tr>
+          <td style="text-align:left;padding:6px;border-bottom:1px solid #f0f0f0;">${row.month}</td>
+          ${cols}
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderMonthlyChart(payload) {
+    const el = document.getElementById("monthlyChart");
+    if (!el) return;
+    const ctx = el.getContext("2d");
+    if (monthlyChart) monthlyChart.destroy();
+
+    const labels = payload.months || ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+    const datasets = (payload.series || []).map((s, idx) => {
+      const color = YEAR_COLORS[idx % YEAR_COLORS.length];
+      return {
+        label: String(s.year),
+        data: (s.values || []).map(v => (v == null ? null : Number(v))),
+        borderColor: color,
+        backgroundColor: color.replace("rgb", "rgba").replace(")", ", 0.15)"),
+        borderWidth: 2,
+        spanGaps: true,
+        tension: 0.25,
+        pointRadius: 0,
+        fill: true
+      };
+    });
+
+    monthlyChart = new Chart(ctx, {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { title: { display: true, text: "Mês" } },
+          y: { title: { display: true, text: `${(payload.sensorType||"valor")}` } }
+        },
+        plugins: {
+          legend: { position: "top" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const y = ctx.parsed.y;
+                return `${ctx.dataset.label}: ${Number.isFinite(y) ? y.toFixed(2) : "—"}`;
+              }
+            }
+          }
+        },
+        elements: { point: { radius: 0 } }
+      }
+    });
+  }
+
+  async function loadMonthlyComparison() {
+    const siloId = document.getElementById("siloSelect")?.value;
+    const sensorType = document.getElementById("sensorTypeSelect")?.value || "temperature";
+    if (!siloId) { U.notify("warning", "Selecione um silo."); return; }
+
+    try {
+      U.notify("info", "Carregando comparativo mensal por ano...");
+      // Padrão: últimos 3 anos. Para fixar anos: passe uma string CSV (ex.: "2018,2019,2020")
+      const payload = await fetchMonthlySeries(siloId, sensorType, null, 3);
+      if (!payload?.years?.length) {
+        U.notify("info", "Sem dados para montar o comparativo.");
+        return;
+      }
+      renderMonthlyTable(payload);
+      renderMonthlyChart(payload);
+      U.notify("success", "Comparativo carregado!");
+    } catch (e) {
+      console.error(e);
+      U.notify("error", "Falha ao carregar o comparativo mensal.");
+    }
+  }
+
+  // =================== /COMPARATIVO MENSAL MULTI-ANO ======================
 })();

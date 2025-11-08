@@ -1,0 +1,115 @@
+# =========================
+# OS / Editor junk
+# =========================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# VS Code: ignore a pasta inteira (descomente as exceções se quiser versionar recomendações)
+.vscode/
+# !.vscode/extensions.json
+# !.vscode/settings.json
+# !.vscode/tasks.json
+# !.vscode/launch.json
+
+# =========================
+# Python (agrosilo-ts-pipeline / app)
+# =========================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.pyre_configuration.*
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+site/
+dist/
+build/
+.ipynb_checkpoints/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+ENV/
+
+# Env files (mantenha apenas o exemplo)
+.env
+.env.*
+!.env.example
+
+# =========================
+# Node / JavaScript (backend, frontend, etc.)
+# =========================
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Lockfiles — geralmente DEVEM ser versionados
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# =========================
+# Builds / Bundlers / Frameworks
+# =========================
+# Frontend (Vite/Parcel/Webpack/etc.)
+frontend/dist/
+frontend/build/
+frontend/.cache/
+frontend/.parcel-cache/
+
+# Next.js / SSG
+.next/
+out/
+
+# Backend Node builds
+backend/dist/
+backend/build/
+backend/.cache/
+
+# Generic coverage
+coverage/
+
+# =========================
+# Logs / temporários
+# =========================
+logs/
+**/*.log
+*.log
+tmp/
+temp/
+*.tmp
+
+# =========================
+# Dados locais (se usar)
+# =========================
+data/
+*.sqlite
+*.sqlite3
+*.db
+dump.rdb
+mongodb-data/
+
+# =========================
+# Arquivos diversos
+# =========================
+*.tar
+*.tar.gz
+*.tgz
+*.zip

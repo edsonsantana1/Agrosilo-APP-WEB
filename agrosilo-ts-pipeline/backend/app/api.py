@@ -1,179 +1,131 @@
-import os, asyncio
+import os
+import asyncio
+from typing import Optional
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
 
 from .thingspeak_client import ThingSpeakClient
 from .repositories import SensorRepository, ReadingRepository
 from .services import IngestService
 from .assessments import AssessmentRepository
 
-# Nota: o router de análise é importado dentro de create_app() para evitar import circular.
-# (api.py -> analysis.router -> api.py)
+# Carrega .env a partir da pasta do backend
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-# ===== Estado de módulo (referências injetadas no startup) ===================
-# Mantém referências globais para objetos criados no ciclo de vida do app.
-# Vantagem: acessíveis pelos endpoints; Cuidado: não usar fora do loop/eventos.
-mongo_client = None
-sensor_repo = None
-reading_repo = None
-ts_client = None
-ingestion_service = None
-assessment_repo = None
-polling_task: asyncio.Task | None = None
+# ===== Estado global (injeção no startup) ====================================
+mongo_client: Optional[AsyncIOMotorClient] = None
+sensor_repo: Optional[SensorRepository] = None
+reading_repo: Optional[ReadingRepository] = None
+ts_client: Optional[ThingSpeakClient] = None
+ingestion_service: Optional[IngestService] = None
+assessment_repo: Optional[AssessmentRepository] = None
+polling_task: Optional[asyncio.Task] = None
 
-# Intervalo do agendador (segundos). Leitura via ENV com default de "15".
-# Boa prática: parametrizar via ambiente -> Open/Closed (config sem mudar código).
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "15"))
 
-# ===== Tarefa periódica (Scheduler simples via asyncio) ======================
+
+# ===== Tarefa periódica (scheduler simples) ==================================
 async def periodic_poll(svc: IngestService):
-    """
-    Loop infinito cooperativo que dispara a ingestão em intervalos fixos.
-    - Usa await para não bloquear o event loop (I/O bound).
-    - Captura CancelledError para encerrar graciosamente no shutdown.
-    - Em erros genéricos, faz 'backoff' simples (dobro do intervalo) e continua.
-    """
     while True:
         try:
             print("--- [SCHEDULER] Iniciando ciclo de polling ---")
-            await svc.sync_all()  # coleta -> limpeza -> persistência -> assessment
-            print("--- [SCHEDULER] Fim do ciclo. Aguardando... ---")
+            await svc.sync_all()
+            print(f"--- [SCHEDULER] Fim do ciclo. Aguardando {POLL_SECONDS}s ---")
+            await asyncio.sleep(POLL_SECONDS)
         except asyncio.CancelledError:
-            # Propaga o cancelamento para o loop encerrar corretamente.
+            print("[SCHEDULER] Cancelado.")
             raise
         except Exception as e:
-            # Observabilidade básica; em produção: logger + métricas + tracing.
-            print(f"ERRO no ciclo de polling: {e}")
-            await asyncio.sleep(POLL_SECONDS * 2)  # backoff simples para aliviar pressão
-            continue
-        await asyncio.sleep(POLL_SECONDS)
+            print(f"[SCHEDULER] ERRO: {e}")
+            await asyncio.sleep(POLL_SECONDS * 2)
 
-# ===== Fábrica do aplicativo (composição de dependências) ====================
+
+# ===== Fábrica do app ========================================================
 def create_app() -> FastAPI:
-    """
-    Ponto único de composição:
-    - Cria FastAPI, configura CORS, injeta repositórios/serviços,
-      prepara índices, e inicia a tarefa assíncrona de polling.
-    - DIP (Dependency Inversion): IngestService depende de abstrações
-      (interfaces/repositórios), e a composição concreta acontece aqui.
-    """
     app = FastAPI(title="Agrosilo Pipeline")
 
-    # CORS amplo (origens/metodos/headers). Em produção, restrinja allow_origins.
+    # CORS (restrinja em produção)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
-    # --------- Endpoints leves (healthcheck) ---------------------------------
     @app.get("/health")
     async def health():
-        """
-        Prova de vida do serviço (usado por orquestradores/monitoramento).
-        Retorna dict serializável (FastAPI converte para JSON).
-        """
         return {"ok": True}
 
-    # --------- Hooks de ciclo de vida ----------------------------------------
     @app.on_event("startup")
     async def _startup():
-        """
-        Executa ao subir o servidor:
-        - Abre conexão com MongoDB (Motor async)
-        - Cria repositórios e cliente ThingSpeak
-        - Garante índices e coleção time-series
-        - Instancia IngestService e injeta AssessmentRepository
-        - Agenda a tarefa periódica de ingestão
-        """
-        global mongo_client, sensor_repo, reading_repo, ts_client, ingestion_service, assessment_repo, polling_task
+        global mongo_client, sensor_repo, reading_repo, ts_client
+        global ingestion_service, assessment_repo, polling_task
 
-        # 1) Conexão Mongo (não bloqueante). Em produção: pool/tuning via URI.
         mongo_uri = os.getenv("MONGODB_URI")
-        mongo_db  = os.getenv("MONGODB_DB", "test")
-        mongo_client = AsyncIOMotorClient(mongo_uri)
+        mongo_db = os.getenv("MONGODB_DB", "test")
+        if not mongo_uri:
+            raise RuntimeError("MONGODB_URI não definido no ambiente.")
+
+        # Conecta Mongo e expõe no app.state
+        mongo_client = AsyncIOMotorClient(mongo_uri, serverSelectionTimeoutMS=6000)
         db = mongo_client[mongo_db]
+        app.state.db = db  # <- usado pelo analysis.router via Request
 
-        # Disponibiliza o DB para outros módulos/routers via app.state (inj. simples)
-        app.state.db = db
-
-        # 2) Repositórios (persistência) e cliente de coleta (HTTP ThingSpeak)
-        sensor_repo  = SensorRepository(db)
+        # Repositórios
+        sensor_repo = SensorRepository(db)
         reading_repo = ReadingRepository(db)
-        ts_client    = ThingSpeakClient()  # lê credenciais do ambiente internamente
 
-        # 3) Repositório de assessments: garante índice único e deduplicação
+        # Assessments (garante índices sem falhar o startup se der erro)
         assessment_repo = AssessmentRepository(db)
-        await assessment_repo.ensure_indexes()
+        try:
+            await assessment_repo.ensure_indexes()
+        except Exception as e:
+            print(f"[STARTUP] Falha ao garantir índices de assessments: {e}")
 
-        # 4) Coleção time-series + índice {sensor, ts} único (consistência temporal)
-        await reading_repo.ensure_time_series()
-
-        # 5) Serviço de ingestão (regras de negócio + tratamento de dados)
+        # Cliente de coleta + serviço de ingestão
+        ts_client = ThingSpeakClient()
         ingestion_service = IngestService(
             ts_client=ts_client,
             sensor_repo=sensor_repo,
             reading_repo=reading_repo,
         )
-        # Injeta repo de assessments (separação de responsabilidades)
         ingestion_service.set_assessment_repo(assessment_repo)
 
-        # 6) Agendador assíncrono: inicia loop periódico em segundo plano
+        # Scheduler
         polling_task = asyncio.create_task(periodic_poll(ingestion_service))
-        print(f"INFO: Polling iniciado a cada {POLL_SECONDS} segundos.")
+        print(f"[STARTUP] Polling iniciado a cada {POLL_SECONDS}s.")
 
     @app.on_event("shutdown")
     async def _shutdown():
-        """
-        Executa ao encerrar o servidor:
-        - Cancela a tarefa periódica (permitindo encerrar o loop com segurança)
-        - Fecha a conexão com MongoDB (limpeza de recursos)
-        """
         global mongo_client, polling_task
         if polling_task:
             polling_task.cancel()
-            print("INFO: Polling Task cancelada.")
+            try:
+                await polling_task
+            except asyncio.CancelledError:
+                pass
+            print("[SHUTDOWN] Polling task cancelada.")
         if mongo_client:
             mongo_client.close()
-            print("INFO: Conexão com MongoDB fechada.")
+            print("[SHUTDOWN] Conexão MongoDB fechada.")
 
-    # --------- Endpoints de negócio ------------------------------------------
+    # ---- Disparo manual da ingestão (opcional/útil em testes) ---------------
     @app.post("/trigger-sync")
     async def trigger_sync():
-        """
-        Endpoint para disparo manual da ingestão (útil em demos e testes).
-        Retorna o resumo do sync (recebidos/armazenados/descartados, last values e assessment).
-        Observação: FastAPI serializa datetime automaticamente.
-        """
+        if not ingestion_service:
+            return {"ok": False, "error": "IngestionService indisponível"}
         return await ingestion_service.sync_all()
 
-    @app.get("/history")
-    async def history(siloId: str, type: str, limit: int = 200):
-        """
-        Retorna histórico limpo de leituras para um silo/tipo específico.
-        - get_or_create: registra sensor se ainda não existir (idempotente)
-        - get_history: busca ordenada, limita N e devolve pronto para plot
-        """
-        sensor = await sensor_repo.get_or_create(siloId, type)
-        data = await reading_repo.get_history(sensor.id, limit)
-        return {
-            "sensorId": sensor.id,
-            "type": sensor.type,
-            "points": [{"t": d.ts, "v": d.value} for d in data],
-        }
-
-    # --------- Router de análises (registrado no final para evitar ciclos) ----
-    # Evita import circular: só aqui dentro, após create_app configurar 'app'.
+    # ---- Router de Análises (import depois do startup configurado) ----------
     from .analysis.router import router as analysis_router
     app.include_router(analysis_router)
-    # Endpoints expostos pelo módulo de análise (documentados para visibilidade):
-    #   GET  /analysis/history
-    #   GET  /analysis/aggregate
-    #   GET  /analysis/scatter
-    #   GET  /analysis/export.csv
-    #   GET  /analysis/report.pdf
 
     return app
 
-# Instancia o app (entrypoint do ASGI). Uvicorn/Gunicorn vão importar 'app'.
+
+# Ponto de entrada para Uvicorn/Gunicorn
 app = create_app()

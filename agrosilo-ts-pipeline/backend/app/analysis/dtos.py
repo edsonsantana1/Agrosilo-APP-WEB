@@ -1,11 +1,9 @@
 """
 dtos.py
 Modelos Pydantic: contratos de entrada/saída (I/O) da API de análises.
-
-Princípio SOLID (S): cada classe tem uma responsabilidade clara (tipagem e validação).
 """
 
-from typing import List, Optional, Literal, Tuple
+from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -29,15 +27,8 @@ class AggregateQuery(HistoryQuery):
     ma: Optional[int] = Field(None, ge=2, le=2000, description="Janela de média móvel (opcional)")
 
 
-class ScatterQuery(BaseModel):
-    siloId: str
-    start: Optional[datetime] = None
-    end: Optional[datetime] = None
-    limit: int = Field(50000, ge=100, le=150000)
-
-
 # ---------------------------
-# Responses
+# Responses básicos
 # ---------------------------
 
 class Point(BaseModel):
@@ -89,6 +80,10 @@ class AggregateResponse(BaseModel):
     buckets: List[AggregateBucket]
 
 
+# ---------------------------
+# Scatter
+# ---------------------------
+
 class ScatterPoint(BaseModel):
     x: float  # temperatura
     y: float  # umidade
@@ -97,3 +92,23 @@ class ScatterPoint(BaseModel):
 
 class ScatterResponse(BaseModel):
     pairs: List[ScatterPoint]
+
+
+# ---------------------------
+# Monthly comparison (novo)
+# ---------------------------
+
+class MonthlyPoint(BaseModel):
+    month: int                 # 1..12
+    avg: Optional[float] = None
+
+
+class MonthlySeries(BaseModel):
+    year: int
+    points: List[MonthlyPoint]  # 12 itens (1..12), avg pode ser None
+
+
+class MonthlyComparisonResponse(BaseModel):
+    sensorType: str
+    years: List[int]
+    series: List[MonthlySeries]
