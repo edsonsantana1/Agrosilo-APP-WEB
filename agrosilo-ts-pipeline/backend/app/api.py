@@ -1,21 +1,24 @@
+# app/api.py
 import os
 import asyncio
 from typing import Optional
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
+
+# 🔑 carregue o .env ANTES de importar routers/módulos que leem o ambiente
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from .thingspeak_client import ThingSpeakClient
 from .repositories import SensorRepository, ReadingRepository
 from .services import IngestService
 from .assessments import AssessmentRepository
 
-# Carrega .env a partir da pasta do backend
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
+# Routers (só agora)
+from .analysis.router import router as analysis_router
+from .mfa.router import router as mfa_router
 
-# ===== Estado global (injeção no startup) ====================================
 mongo_client: Optional[AsyncIOMotorClient] = None
 sensor_repo: Optional[SensorRepository] = None
 reading_repo: Optional[ReadingRepository] = None
@@ -26,8 +29,6 @@ polling_task: Optional[asyncio.Task] = None
 
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "15"))
 
-
-# ===== Tarefa periódica (scheduler simples) ==================================
 async def periodic_poll(svc: IngestService):
     while True:
         try:
@@ -42,12 +43,9 @@ async def periodic_poll(svc: IngestService):
             print(f"[SCHEDULER] ERRO: {e}")
             await asyncio.sleep(POLL_SECONDS * 2)
 
-
-# ===== Fábrica do app ========================================================
 def create_app() -> FastAPI:
     app = FastAPI(title="Agrosilo Pipeline")
 
-    # CORS (restrinja em produção)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -66,27 +64,23 @@ def create_app() -> FastAPI:
         global ingestion_service, assessment_repo, polling_task
 
         mongo_uri = os.getenv("MONGODB_URI")
-        mongo_db = os.getenv("MONGODB_DB", "test")
+        mongo_db  = os.getenv("MONGODB_DB", "agrosilo")
         if not mongo_uri:
             raise RuntimeError("MONGODB_URI não definido no ambiente.")
 
-        # Conecta Mongo e expõe no app.state
         mongo_client = AsyncIOMotorClient(mongo_uri, serverSelectionTimeoutMS=6000)
         db = mongo_client[mongo_db]
-        app.state.db = db  # <- usado pelo analysis.router via Request
+        app.state.db = db
 
-        # Repositórios
         sensor_repo = SensorRepository(db)
         reading_repo = ReadingRepository(db)
 
-        # Assessments (garante índices sem falhar o startup se der erro)
         assessment_repo = AssessmentRepository(db)
         try:
             await assessment_repo.ensure_indexes()
         except Exception as e:
             print(f"[STARTUP] Falha ao garantir índices de assessments: {e}")
 
-        # Cliente de coleta + serviço de ingestão
         ts_client = ThingSpeakClient()
         ingestion_service = IngestService(
             ts_client=ts_client,
@@ -95,9 +89,15 @@ def create_app() -> FastAPI:
         )
         ingestion_service.set_assessment_repo(assessment_repo)
 
-        # Scheduler
         polling_task = asyncio.create_task(periodic_poll(ingestion_service))
         print(f"[STARTUP] Polling iniciado a cada {POLL_SECONDS}s.")
+
+        # Log das rotas registradas
+        for r in app.router.routes:
+            try:
+                print("[ROUTE]", r.methods, getattr(r, "path", None))
+            except Exception:
+                pass
 
     @app.on_event("shutdown")
     async def _shutdown():
@@ -113,19 +113,16 @@ def create_app() -> FastAPI:
             mongo_client.close()
             print("[SHUTDOWN] Conexão MongoDB fechada.")
 
-    # ---- Disparo manual da ingestão (opcional/útil em testes) ---------------
     @app.post("/trigger-sync")
     async def trigger_sync():
         if not ingestion_service:
             return {"ok": False, "error": "IngestionService indisponível"}
         return await ingestion_service.sync_all()
 
-    # ---- Router de Análises (import depois do startup configurado) ----------
-    from .analysis.router import router as analysis_router
-    app.include_router(analysis_router)
+    # Routers
+    app.include_router(analysis_router)  # /analysis/*
+    app.include_router(mfa_router)       # /auth/mfa/*
 
     return app
 
-
-# Ponto de entrada para Uvicorn/Gunicorn
 app = create_app()

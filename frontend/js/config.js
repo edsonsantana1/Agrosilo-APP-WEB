@@ -1,22 +1,23 @@
 /**
  * Configurações globais do aplicativo Agrosilo
  */
-
-// Configuração da API
 const API_CONFIG = {
-    baseURL: 'http://localhost:4000/api',
-    timeout: 10000, // 10 segundos
-    headers: {
-        'Content-Type': 'application/json'
-    }
+  baseURL: 'http://localhost:4000/api',
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' }
+};
+window.API_URL = API_CONFIG.baseURL;
+
+const AUTH_CONFIG = {
+  tokenKey: 'agrosilo_token',
+  userKey: 'agrosilo_user',
+  tokenExpiry: 3600000
 };
 
-// Configurações de autenticação
-const AUTH_CONFIG = {
-    tokenKey: 'agrosilo_token',
-    userKey: 'agrosilo_user',
-    tokenExpiry: 3600000 // 1 hora em millisegundos
-};
+// ... (demais configs/Utils iguais aos seus)
+
+window.API_CONFIG = API_CONFIG;
+window.AUTH_CONFIG = AUTH_CONFIG;
 
 // Configurações de notificação
 const NOTIFICATION_CONFIG = {

@@ -1,107 +1,110 @@
-// routes/auth.js
-const express = require("express");
+// backend/routes/auth.js
+const express = require('express');
 const router = express.Router();
-const jwt = require("jsonwebtoken");
-const User = require("../models/user");
+const jwt = require('jsonwebtoken');
+const User = require('../models/user');
 
-/**
- * Gera um JWT a partir do payload { userId, role }
- */
-function signToken(user) {
-  const payload = { userId: user.id, role: user.role };
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
+// ========= Config =========
+const JWT_SECRET = process.env.JWT_SECRET || 'changeme';
+const JWT_ALG = 'HS256';
+
+// Habilita fluxo MFA por padrão (defina REQUIRE_MFA=false no .env para desabilitar)
+const REQUIRE_MFA = (process.env.REQUIRE_MFA || 'true').toLowerCase() !== 'false';
+
+// ========= Helpers =========
+function issueToken(payload, opts = {}) {
+  return jwt.sign(payload, JWT_SECRET, { algorithm: JWT_ALG, expiresIn: '24h', ...opts });
 }
 
-/**
- * Normaliza o retorno do usuário para não expor campos sensíveis
- */
+function issueTempMfaToken(payload) {
+  return jwt.sign({ ...payload, mfa_stage: 'provision' }, JWT_SECRET, {
+    algorithm: JWT_ALG,
+    expiresIn: '10m'
+  });
+}
+
 function toSafeUser(user) {
   return {
     id: user._id,
     name: user.name,
     email: user.email,
     role: user.role,
-    phoneNumber: user.phoneNumber,
+    phoneNumber: user.phoneNumber || null
   };
 }
 
-/**
- * POST /api/auth/register
- * Cria um usuário e já retorna token + dados do usuário
- */
-router.post("/register", async (req, res) => {
+// ========= Register =========
+router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role, phoneNumber } = req.body;
-
-    // validações simples
+    const { name, email, password, role, phoneNumber } = req.body || {};
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "Nome, email e senha são obrigatórios." });
+      return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
     }
 
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ message: "Usuário já existe" });
-    }
+    const exists = await User.findOne({ email: email.toLowerCase().trim() });
+    if (exists) return res.status(409).json({ error: 'E-mail já cadastrado.' });
 
-    // Não faça hash aqui: o model fará no pre('save')
-    const user = new User({
+    const user = await User.create({
       name,
-      email,
-      password,                 // senha pura; o model fará hash
-      role: role || "user",     // padrão: user
-      phoneNumber,
+      email: email.toLowerCase().trim(),
+      password, // hash no pre('save') do schema
+      role: role || 'user',
+      phoneNumber: phoneNumber || null,
+      mfa: { enabled: false }
     });
 
-    await user.save();
-
-    // Gera token e responde
-    const token = signToken(user);
-    return res.status(201).json({
-      token,
-      user: toSafeUser(user),
-    });
+    return res.status(201).json({ ok: true, id: user._id });
   } catch (err) {
-    console.error("Erro no registro:", err);
-    return res.status(500).send("Erro do Servidor");
+    console.error('[auth/register] error:', err);
+    return res.status(500).json({ error: 'Erro ao registrar usuário.' });
   }
 });
 
-/**
- * POST /api/auth/login
- * Autentica e retorna token + dados do usuário
- */
-router.post("/login", async (req, res) => {
+// ========= Login (com MFA) =========
+router.post('/login', async (req, res) => {
   try {
-    const { email, password, role } = req.body;
-
+    const { email, password, role } = req.body || {};
     if (!email || !password) {
-      return res.status(400).json({ error: "Email e senha são obrigatórios." });
+      return res.status(400).json({ error: 'Informe e-mail e senha.' });
     }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ error: "Credenciais de login inválidas" });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+
+    const ok = await user.comparePassword(password);
+    if (!ok) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+
+    if (role && user.role && role !== user.role) {
+      return res.status(403).json({ error: 'Perfil não autorizado para este usuário.' });
     }
 
-    // compara senha usando o método do model (bcrypt.compare)
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ error: "Credenciais de login inválidas" });
+    if (REQUIRE_MFA) {
+      const mfa = user.mfa || {};
+      if (mfa.enabled && mfa.secret) {
+        // 2FA já habilitado → segunda etapa (TOTP)
+        return res.json({ mfa: 'verify', email: user.email });
+      }
+      // ainda não habilitou → provisionar (gera token temporário)
+      const tempToken = issueTempMfaToken({
+        sub: String(user._id),
+        userId: String(user._id),
+        email: user.email,
+        role: user.role || 'user'
+      });
+      return res.json({ mfa: 'provision', tempToken });
     }
 
-    // se o cliente enviou role, valide (opcional)
-    if (role && user.role !== role) {
-      return res.status(403).json({ error: "Acesso negado para esta função" });
-    }
-
-    const token = signToken(user);
-    return res.json({
-      token,
-      user: toSafeUser(user),
+    // Sem MFA (REQUIRE_MFA=false)
+    const token = issueToken({
+      sub: String(user._id),
+      userId: String(user._id),
+      email: user.email,
+      role: user.role || 'user'
     });
+    return res.json({ token, user: toSafeUser(user) });
   } catch (err) {
-    console.error("Erro no login:", err);
-    return res.status(500).send("Erro do Servidor");
+    console.error('[auth/login] error:', err);
+    return res.status(500).json({ error: 'Erro ao processar login.' });
   }
 });
 

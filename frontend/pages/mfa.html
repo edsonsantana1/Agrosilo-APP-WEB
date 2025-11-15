@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Verificação em Duas Etapas - AgroSilo TS Pipeline</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <link rel="stylesheet" href="../css/login.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
+  <style>
+    .mfa-container { text-align: center; }
+    .qr-code-box {
+      background: var(--surface-color); padding: 15px; border-radius: var(--border-radius);
+      margin: 20px auto; max-width: 220px; border: 1px solid var(--border-color); box-shadow: var(--shadow-light);
+    }
+    .qr-code-box img { width: 100%; height: auto; display: block; }
+    .security-alerts { margin-top: 30px; text-align: left; padding: 15px; background: rgba(255,255,255,.8);
+      border-radius: var(--border-radius); border-left: 5px solid var(--warning-color); box-shadow: var(--shadow-light); }
+    .security-alerts h3 { color: var(--warning-color); margin-top: 0; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+    .security-alerts ul { list-style: none; padding: 0; margin-top: 10px; }
+    .security-alerts ul li { margin-bottom: 8px; font-size: 14px; color: var(--text-primary); display: flex; gap: 8px; }
+    .security-alerts ul li i { color: var(--success-color); margin-top: 3px; }
+    .mfa-form-container { max-width: 460px; width: 100%; position: relative; z-index: 1; }
+    .form-group.mfa-code input {
+      text-align: center; letter-spacing: 6px; font-size: 24px; font-weight: 700; padding: 15px 10px;
+    }
+    .form-group.mfa-code .form-icon { display: none; }
+    .btn-login[disabled] { opacity: .7; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <div class="logo"><i class="fas fa-seedling"></i><h1>AgroSilo</h1></div>
+      <p class="subtitle">Verificação em Duas Etapas (2FA)</p>
+    </div>
+
+    <div class="login-form-container mfa-form-container">
+      <div id="message-container" class="message-container"></div>
+
+      <!-- PROVISION -->
+      <div id="mfa-provision-step">
+        <h2>Ativar 2FA</h2>
+        <p>Escaneie o QR Code abaixo com seu aplicativo Google Authenticator.</p>
+
+        <div class="qr-code-box">
+          <img id="qr-code-image" src="" alt="QR Code para 2FA"/>
+        </div>
+
+        <p style="font-size: 14px; color: var(--text-secondary);">Se não puder escanear, use o código secreto:</p>
+        <code id="mfa-secret" style="display:block;margin-bottom:20px;padding:10px;background:var(--surface-color);border-radius:var(--border-radius);font-weight:bold;"></code>
+
+        <form id="mfa-provision-form" class="login-form" autocomplete="off" novalidate>
+          <div class="form-group mfa-code">
+            <label for="mfa-code-provision">Código de Verificação (6 dígitos)</label>
+            <input type="text" id="mfa-code-provision" maxlength="6" inputmode="numeric" placeholder="------" required autocomplete="one-time-code"/>
+          </div>
+          <button type="submit" class="btn-login" id="btn-provision">
+            <i class="fas fa-check-circle"></i> <span>Confirmar Ativação</span>
+          </button>
+          <p style="margin-top: 15px; font-size: 12px; color: var(--text-secondary);">Você será redirecionado para a tela de login após a confirmação.</p>
+        </form>
+      </div>
+
+      <!-- VERIFY -->
+      <div id="mfa-verify-step" style="display:none;">
+        <h2>Verificação de Login</h2>
+        <p>Digite o código de 6 dígitos gerado pelo seu aplicativo autenticador.</p>
+
+        <form id="mfa-verify-form" class="login-form" autocomplete="off" novalidate>
+          <div class="form-group mfa-code">
+            <label for="mfa-code-verify">Código de Verificação (6 dígitos)</label>
+            <input type="text" id="mfa-code-verify" maxlength="6" inputmode="numeric" placeholder="------" required autocomplete="one-time-code"/>
+            <input type="hidden" id="verify-email"/>
+          </div>
+          <button type="submit" class="btn-login" id="btn-verify">
+            <i class="fas fa-lock-open"></i> <span>Validar e Entrar</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="security-alerts">
+        <h3><i class="fas fa-shield-alt"></i> Segurança Reforçada</h3>
+        <ul>
+          <li><i class="fas fa-check-circle"></i> Nunca compartilhe seu código de verificação.</li>
+          <li><i class="fas fa-check-circle"></i> Protege seus dados contra acessos não autorizados.</li>
+          <li><i class="fas fa-check-circle"></i> Use Google Authenticator ou Authy.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/utils.js"></script>
+  <script>
+    function displayMessage(type, text) {
+      const c = document.getElementById('message-container');
+      c.innerHTML = `<div class="message message-${type}">
+        <i class="fas fa-${type === 'error' ? 'times-circle' : type === 'success' ? 'check-circle' : 'info-circle'}"></i>${text}
+      </div>`;
+      setTimeout(() => { c.innerHTML = ''; }, 6000);
+    }
+
+    function setLoading(btn, on, labelWhileOn) {
+      if (!btn) return;
+      if (on) {
+        btn.dataset.original = btn.innerHTML;
+        btn.innerHTML = `<div class="loading"></div> ${labelWhileOn || 'Processando...'}`;
+        btn.disabled = true;
+      } else {
+        btn.innerHTML = btn.dataset.original || btn.innerHTML;
+        btn.disabled = false;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const url = new URLSearchParams(location.search);
+      const mode  = url.get('mode');   // 'provision' | 'verify'
+      const email = url.get('email');
+
+      const provisionStep = document.getElementById('mfa-provision-step');
+      const verifyStep    = document.getElementById('mfa-verify-step');
+      const verifyEmailInput = document.getElementById('verify-email');
+
+      // controla qual passo mostrar
+      if (mode === 'verify' && email) {
+        provisionStep.style.display = 'none';
+        verifyStep.style.display = 'block';
+        verifyEmailInput.value = email;
+      } else if (mode === 'provision') {
+        verifyStep.style.display = 'none';
+        provisionStep.style.display = 'block';
+        startProvisioning();
+      } else {
+        // fallback
+        location.href = '../index.html';
+        return;
+      }
+
+      // ------- PROVISION -------
+      async function startProvisioning() {
+        try {
+          const tokenKey = (window.AUTH_CONFIG && window.AUTH_CONFIG.tokenKey) || 'agrosilo_token';
+          const token = localStorage.getItem(tokenKey);
+          if (!token) {
+            displayMessage('error', 'Você precisa estar logado para ativar o 2FA (token temporário ausente).');
+            return;
+          }
+
+          const resp = await fetch(`${window.API_URL}/auth/mfa/provision`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) {
+            displayMessage('error', data.detail || data.error || data.message || 'Falha ao iniciar o provisionamento de 2FA.');
+            return;
+          }
+
+          document.getElementById('qr-code-image').src = data.qrCodeDataUri;
+          document.getElementById('mfa-secret').textContent = data.secret;
+          sessionStorage.setItem('tempMfaSecret', data.secret);
+        } catch (e) {
+          console.error('[mfa] provision error:', e);
+          displayMessage('error', 'Erro de conexão com o servidor.');
+        }
+      }
+
+      document.getElementById('mfa-provision-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const tokenKey = (window.AUTH_CONFIG && window.AUTH_CONFIG.tokenKey) || 'agrosilo_token';
+        const token  = localStorage.getItem(tokenKey);
+        const secret = sessionStorage.getItem('tempMfaSecret');
+        const raw    = document.getElementById('mfa-code-provision').value || '';
+        const code   = raw.replace(/\D/g, ''); // <<< remove espaços e outros caracteres
+
+        if (!token)  return displayMessage('error', 'Sessão expirada. Faça login novamente.');
+        if (!secret) return displayMessage('error', 'Secret 2FA não encontrado. Recarregue a página.');
+        if (code.length !== 6) return displayMessage('error', 'Digite os 6 dígitos do código.');
+
+        const btn = document.getElementById('btn-provision');
+        setLoading(btn, true, 'Confirmando...');
+
+        try {
+          const resp = await fetch(`${window.API_URL}/auth/mfa/confirm`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ secret, token: code })
+          });
+
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) {
+            setLoading(btn, false);
+            return displayMessage('error', data.detail || data.error || data.message || 'Código inválido. Tente novamente.');
+          }
+
+          displayMessage('success', '2FA ativado com sucesso! Redirecionando...');
+          sessionStorage.removeItem('tempMfaSecret');
+          localStorage.removeItem(tokenKey); // encerra sessão temporária
+          setTimeout(() => location.href = '../index.html', 1200);
+        } catch (e) {
+          console.error('[mfa] confirm error:', e);
+          displayMessage('error', 'Erro de conexão com o servidor.');
+          setLoading(btn, false);
+        }
+      });
+
+      // ------- VERIFY -------
+      document.getElementById('mfa-verify-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const raw  = document.getElementById('mfa-code-verify').value || '';
+        const code = raw.replace(/\D/g, '');
+        const email = verifyEmailInput.value;
+
+        if (!email) return displayMessage('error', 'E-mail ausente. Volte e faça login novamente.');
+        if (code.length !== 6) return displayMessage('error', 'Digite os 6 dígitos do código.');
+
+        const btn = document.getElementById('btn-verify');
+        setLoading(btn, true, 'Validando...');
+
+        try {
+          const resp = await fetch(`${window.API_URL}/auth/mfa/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, token: code })
+          });
+          const data = await resp.json().catch(() => ({}));
+
+          if (!resp.ok) {
+            setLoading(btn, false);
+            return displayMessage('error', data.detail || data.error || 'Código inválido. Tente novamente.');
+          }
+
+          const tokenKey = (window.AUTH_CONFIG && window.AUTH_CONFIG.tokenKey) || 'agrosilo_token';
+          const userKey  = (window.AUTH_CONFIG && window.AUTH_CONFIG.userKey)  || 'agrosilo_user';
+          localStorage.setItem(tokenKey, data.token);
+          localStorage.setItem(userKey, JSON.stringify(data.user));
+          displayMessage('success', 'Verificação concluída. Acessando o Dashboard...');
+          setTimeout(() => location.href = 'dashboard.html', 900);
+        } catch (e) {
+          console.error('[mfa] verify error:', e);
+          displayMessage('error', 'Erro de conexão com o servidor.');
+          setLoading(btn, false);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
