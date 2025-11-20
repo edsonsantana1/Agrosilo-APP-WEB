@@ -44,38 +44,76 @@ function checkHumidityAlert(h) {
   return null;
 }
 
+// backend/services/alertService.js (Função ATUALIZADA)
+
 function checkTemperatureAlert(t) {
-  const T = POLICY.temperature;
-  if (!Number.isFinite(t)) return null;
+    const T = POLICY.temperature;
+    if (!Number.isFinite(t)) return null;
 
-  if (t > T.high_risk_max)
-    return {
-      level: 'critical',
-      message: `Temperatura extremamente alta: ${p2(t)}°C — acima de ${T.high_risk_max}°C`,
-      recommendation: 'Ação emergencial imediata'
-    };
+    // 1. CRITICAL: Máximo desenvolvimento fúngico (40-55°C) e acima
+    if (t >= T.max_fungus_min)
+        return {
+            level: 'critical',
+            message: `Temperatura crítica: ${p2(t)}°C — máximo desenvolvimento fúngico/risco de queima (${T.max_fungus_min}°C+)`,
+            recommendation: 'Ação emergencial de resfriamento ou remanejamento imediato.'
+        };
+    
+    // 2. WARNING: Faixa de desenvolvimento médio/alto (> 20°C até 40°C)
+    // Usamos 30°C como limite de ALTO risco e 20°C como limite de atenção
+    if (t >= T.medium_growth_min)
+        return {
+            level: 'warning',
+            message: `Temperatura elevada: ${p2(t)}°C — faixa de desenvolvimento fúngico (${T.medium_growth_min}°C+)`,
+            recommendation: 'Monitorar de perto e aplicar aeração/ventilação para baixar a temperatura para < 15°C.'
+        };
 
-  if (t >= T.high_risk_min && t <= T.high_risk_max)
-    return {
-      level: 'critical',
-      message: `Temperatura crítica: ${p2(t)}°C — faixa de máximo desenvolvimento fúngico (${T.high_risk_min}–${T.high_risk_max}°C)`,
-      recommendation: 'Reduzir temperatura (ventilação/aeração)'
-    };
+    // 3. CAUTION: Acima do ideal (< 15°C), mas ainda aceitável (15-20°C)
+    if (t >= T.slow_fungus_max)
+        return {
+            level: 'caution',
+            message: `Temperatura moderada: ${p2(t)}°C — acima da faixa ideal (${T.slow_fungus_max}°C)`,
+            recommendation: 'Manter aeração e monitorar tendências. Reduzir para < 15°C se possível.'
+        };
 
-  if (t >= T.medium_growth_min && t <= T.medium_growth_max)
-    return {
-      level: 'warning',
-      message: `Temperatura elevada: ${p2(t)}°C (${T.medium_growth_min}–${T.medium_growth_max}°C)`,
-      recommendation: 'Monitorar de perto e considerar ventilação'
-    };
-
-  // abaixo de 15°C (slow_fungus): OK (sem alerta)
-  return null;
+    // Abaixo de T.slow_fungus_max (15°C) é a faixa ideal (Desenvolvimento Lento).
+    return null;
 }
 
 // placeholders — ativar quando tiver sensores
 function checkPressureAlert(_) { return null; }
-function checkCO2Alert(_)      { return null;  }
+// backend/services/alertService.js (Nova função)
+
+function checkCO2Alert(c) {
+    const CO2 = POLICY.co2; // Assume que você definirá CO2 na sua POLICY
+    if (!Number.isFinite(c)) return null;
+
+    // Risco Crítico: Atividade de insetos e perdas severas (> 1.100 ppm)
+    if (c >= CO2.severe_loss_min)
+        return {
+            level: 'critical',
+            message: `CO₂ crítico: ${p0(c)} ppm — risco de perdas severas ou atividade de insetos (> ${CO2.severe_loss_min} ppm)`,
+            recommendation: 'Ventilação imediata e investigação de infestação biológica.'
+        };
+
+    // Alerta: Deterioração Incipiente (600 - 1.100 ppm)
+    if (c >= CO2.deterioration_min && c < CO2.severe_loss_min)
+        return {
+            level: 'warning',
+            message: `CO₂ elevado: ${p0(c)} ppm — deterioração incipiente (${CO2.deterioration_min}–${CO2.severe_loss_min} ppm)`,
+            recommendation: 'Monitorar de perto, considerar aeração para estabilização.'
+        };
+
+    // Atenção: Acima do ar ambiente normal (idealmente < 600 ppm, mas > 400 ppm)
+    // Usamos 400 ppm como limite mínimo para caution, pois 400 ppm é o ar ambiente.
+    if (c > CO2.ambient_max)
+        return {
+            level: 'caution',
+            message: `CO₂ acima do ambiente: ${p0(c)} ppm — metabolismo aumentado (> ${CO2.ambient_max} ppm)`,
+            recommendation: 'Manter aeração preventiva e monitorar o nível de oxigênio.'
+        };
+
+    return null; // 400-600 ppm (metabolismo estável) é normal/seguro.
+}
 
 // =======================================================================
 // COMPAT: processa leitura e (se houver alerta) persiste no histórico

@@ -11,7 +11,6 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
   <!-- Chart.js (core) + Adapter para eixo de tempo -->
-  <!-- IMPORTANTE: o adapter precisa vir DEPOIS do Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3" defer></script>
 </head>
@@ -92,6 +91,14 @@
           </div>
         </div>
 
+        <!-- NOVO: filtro de ano para a Série Temporal -->
+        <div class="form-group">
+          <label for="yearSelect">Ano (Série Temporal):</label>
+          <select id="yearSelect" class="form-control">
+            <!-- preenchido via JS com base nos dados carregados -->
+          </select>
+        </div>
+
         <div class="form-group">
           <label for="compareToggle">Comparar período anterior?</label>
           <select id="compareToggle" class="form-control">
@@ -110,9 +117,14 @@
           <i class="fas fa-file-pdf"></i> PDF Técnico
         </button>
 
-        <!-- NOVO: botão do comparativo multi-ano -->
+        <!-- Comparativo multi-ano -->
         <button class="btn btn-outline" id="btnYearly">
           Comparativo Anual
+        </button>
+
+        <!-- NOVO: previsão com PySpark -->
+        <button class="btn btn-outline" id="btnForecast">
+          <i class="fas fa-brain"></i> Rodar Previsão 
         </button>
       </div>
 
@@ -142,7 +154,7 @@
         </div>
       </div>
 
-      <!-- NOVO: Comparativo Multi-Ano (Tabela + Gráfico) -->
+      <!-- Comparativo Mensal multi-ano -->
       <div class="card">
         <div class="card-header"><h3>Comparativo Mensal por Ano</h3></div>
         <div class="card-body" style="display:grid;grid-template-columns:1fr 2fr;gap:16px;min-height:420px;">
@@ -160,13 +172,59 @@
         </div>
       </div>
 
+      <!-- NOVO: Seção de Previsão PySpark -->
+      <div class="card">
+        <div class="card-header"><h3>Previsão de Temperatura</h3></div>
+        <div class="card-body" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;min-height:420px;">
+          <!-- Gráfico histórico + futuro -->
+          <div>
+            <canvas id="forecastHistoryChart"></canvas>
+          </div>
+          <!-- Insights do modelo -->
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div class="kpi">
+              <div class="kpi-title">Temp. atual</div>
+              <div class="kpi-value" id="fcLastTemp">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-title">Média histórica</div>
+              <div class="kpi-value" id="fcMeanTemp">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-title">Mín / Máx</div>
+              <div class="kpi-value" id="fcMinMaxTemp">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-title">RMSE / R²</div>
+              <div class="kpi-value" id="fcMetrics">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-title">Tendência</div>
+              <div class="kpi-value" id="fcTrend">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-title">Correlação Temp x Umid.</div>
+              <div class="kpi-value" id="fcCorr">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOVO: Gráfico Real x Previsto (teste do modelo) -->
+      <div class="card">
+        <div class="card-header"><h3>Real x Previsto (Conjunto de Teste)</h3></div>
+        <div class="card-body" style="height:380px;">
+          <canvas id="forecastTestChart"></canvas>
+        </div>
+      </div>
+
     </div>
   </main>
 
   <!-- Notifications -->
   <div id="notificationContainer" class="notification-container"></div>
 
-  <!-- Scripts do app (ordem importa). Use defer para respeitar a ordem sem bloquear a UI -->
+  <!-- Scripts do app -->
   <script src="../js/config.js" defer></script>
   <script src="../js/auth.js" defer></script>
   <script src="../js/utils.js" defer></script>

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -70,6 +70,7 @@
 
             <!-- Status Cards -->
             <div class="status-cards">
+                <!-- 1) Temperatura (mantido) -->
                 <div class="status-card">
                     <div class="status-icon temperature">
                         <i class="fas fa-thermometer-half"></i>
@@ -84,20 +85,21 @@
                     </div>
                 </div>
 
+                <!-- 2) Agora vem ALERTAS ATIVOS (trocado de lugar com Umidade) -->
                 <div class="status-card">
-                    <div class="status-icon humidity">
-                        <i class="fas fa-tint"></i>
+                    <div class="status-icon alerts">
+                        <i class="fas fa-exclamation-triangle"></i>
                     </div>
                     <div class="status-info">
-                        <h3>Umidade</h3>
-                        <div class="status-value" id="avgHumidity">--%</div>
-                        <div class="status-trend" id="humidityTrend">
-                            <i class="fas fa-arrow-down"></i>
-                            <span>-1.2%</span>
+                        <h3>Alertas Ativos</h3>
+                        <div class="status-value" id="activeAlerts">--</div>
+                        <div class="status-trend" id="alertsTrend">
+                            <span>Últimas 24h</span>
                         </div>
                     </div>
                 </div>
 
+                <!-- 3) Silos Ativos (mantido na mesma posição relativa) -->
                 <div class="status-card">
                     <div class="status-icon silos">
                         <i class="fas fa-warehouse"></i>
@@ -111,15 +113,17 @@
                     </div>
                 </div>
 
+                <!-- 4) Agora vem UMIDADE (foi para a última posição, onde estava Alertas) -->
                 <div class="status-card">
-                    <div class="status-icon alerts">
-                        <i class="fas fa-exclamation-triangle"></i>
+                    <div class="status-icon humidity">
+                        <i class="fas fa-tint"></i>
                     </div>
                     <div class="status-info">
-                        <h3>Alertas Ativos</h3>
-                        <div class="status-value" id="activeAlerts">--</div>
-                        <div class="status-trend" id="alertsTrend">
-                            <span>Últimas 24h</span>
+                        <h3>Umidade</h3>
+                        <div class="status-value" id="avgHumidity">--%</div>
+                        <div class="status-trend" id="humidityTrend">
+                            <i class="fas fa-arrow-down"></i>
+                            <span>-1.2%</span>
                         </div>
                     </div>
                 </div>
@@ -263,4 +267,3 @@
     <script src="../js/dashboard.js"></script>
 </body>
 </html>
-

@@ -18,6 +18,15 @@ function levelLabel(level) {
   return 'INFO';
 }
 
+// Função auxiliar para escapar caracteres HTML em uma string
+function escapeHtml(str) {
+    if (!str) return '';
+    // Escapa & primeiro, depois < e >
+    return str.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+}
+
 // Monta um texto HTML profissional pro Telegram
 function formatAlertMessage(user, alertObj) {
   const { silo, sensor, value, timestamp, alert } = alertObj;
@@ -34,14 +43,22 @@ function formatAlertMessage(user, alertObj) {
   const level = levelLabel(alert.level);
   const date = new Date(timestamp).toLocaleString('pt-BR');
 
+  // --- AQUI ESTÁ A CORREÇÃO ---
+  // Escapamos o conteúdo da mensagem e recomendação
+  const escapedMessage = escapeHtml(alert.message);
+  const escapedRecommendation = escapeHtml(alert.recommendation);
+  // ----------------------------
+
   return (
     `<b>🚨 Agrosilo | ${level}</b>\n` +
     `<b>Silo:</b> ${silo}\n` +
     `<b>Sensor:</b> ${sensorName}\n` +
     `<b>Valor:</b> <code>${value}${unit}</code>\n` +
     `<b>Data/Hora:</b> ${date}\n\n` +
-    `<b>Mensagem:</b>\n${alert.message}\n\n` +
-    `<b>Recomendação:</b>\n${alert.recommendation}\n\n` +
+    
+    `<b>Mensagem:</b>\n${escapedMessage}\n\n` + // Usando o conteúdo escapado
+    `<b>Recomendação:</b>\n${escapedRecommendation}\n\n` + // Usando o conteúdo escapado
+    
     `<i>Alerta automático • Usuário:</i> ${user.name || user.email}`
   );
 }

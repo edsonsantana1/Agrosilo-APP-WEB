@@ -1,8 +1,9 @@
 /**
- * analysis.js (série temporal + comparativo mensal multi-ano)
+ * analysis.js
  *
- * - Mantém toda a lógica anterior da série temporal (KPIs, exportações, etc.).
- * - Adiciona: Tabela + Gráfico por mês/ano (igual à foto 1), via /analysis/monthly.
+ * - Série temporal + KPIs
+ * - Comparativo mensal multi-ano
+ * - Previsão PySpark (histórico+futuro e real x previsto)
  */
 
 (function () {
@@ -52,6 +53,12 @@
   // ---------- Estado ----------
   let lineChart = null;
   let monthlyChart = null;
+  let forecastHistChart = null;
+  let forecastTestChart = null;
+
+  // NOVO: guarda a última série bruta carregada na Série Temporal
+  // (cada ponto: { t: timestampMs, v: valor })
+  let lastHistorySeries = [];
 
   // ---------- Boot ----------
   document.addEventListener("DOMContentLoaded", () => {
@@ -87,8 +94,32 @@
     document.getElementById("btnCSV")?.addEventListener("click", onExportCSV);
     document.getElementById("btnPDF")?.addEventListener("click", onExportPDF);
 
-    // NOVO: comparativo multi-ano
+    // Comparativo multi-ano
     document.getElementById("btnYearly")?.addEventListener("click", loadMonthlyComparison);
+
+    // Previsão PySpark
+    document.getElementById("btnForecast")?.addEventListener("click", onForecast);
+
+    // NOVO: filtro de ano para Série Temporal
+    const yearSel = document.getElementById("yearSelect");
+    if (yearSel) {
+      yearSel.addEventListener("change", () => {
+        if (!lastHistorySeries || !lastHistorySeries.length) return;
+        const sensorType = document.getElementById("sensorTypeSelect")?.value || "temperature";
+
+        // Filtra série pelo ano selecionado
+        const filtered = filterSeriesBySelectedYear(lastHistorySeries);
+
+        // KPIs apenas para o ano filtrado
+        const stats = computeStats(filtered.map(p => p.v));
+        renderKPIs(stats, sensorType);
+
+        // Um dataset por mês (cores diferentes)
+        const datasets = buildMonthlyDatasets(filtered, sensorType);
+        hideChartEmptyState();
+        renderLineChart(datasets, sensorType);
+      });
+    }
   }
 
   // ---------- Silos ----------
@@ -148,7 +179,7 @@
     return { start: null, end: null, durMs: 0 }; // all
   }
 
-  // ---------- Série temporal (padrão) ----------
+  // ---------- Série temporal ----------
   async function onGenerate() {
     const siloId = document.getElementById("siloSelect")?.value;
     const sensorType = document.getElementById("sensorTypeSelect")?.value;
@@ -172,14 +203,37 @@
         return;
       }
 
-      const mainDs = toLineDataset(data, sensorType, "Atual");
+      // Guarda série bruta para reuso no filtro de ano
+      lastHistorySeries = data.slice();
 
-      // KPIs
+      // Se o período for "Todo o período" (all), aplicamos a visão por ano/mês
+      if ((period.range || "24h") === "all") {
+        // Preenche select de ano com base em todos os dados
+        populateYearSelectFromData(lastHistorySeries);
+
+        // Filtra para o ano selecionado (por padrão, ano atual)
+        const filtered = filterSeriesBySelectedYear(lastHistorySeries);
+
+        // KPIs do ano filtrado
+        const stats = computeStats(filtered.map(p => p.v));
+        renderKPIs(stats, sensorType);
+
+        // Um dataset por mês, cada um com sua cor
+        const datasets = buildMonthlyDatasets(filtered, sensorType);
+
+        hideChartEmptyState();
+        renderLineChart(datasets, sensorType);
+        U.notify("success", "Dados carregados com sucesso!");
+        return;
+      }
+
+      // Demais períodos (24h, 7d, 30d, custom) usam o comportamento antigo
+      const mainDs = toLineDataset(data, sensorType, "Atual");
       const stats = computeStats(data.map(p => p.v));
       renderKPIs(stats, sensorType);
 
-      // comparação (janela anterior)
       const datasets = [mainDs];
+
       if (compare) {
         const { start, end, durMs } = normalizeWindow(period);
         if (start && end && durMs > 0) {
@@ -285,16 +339,14 @@
   }
 
   async function fetchHistory(siloId, sensorType, queryString) {
-    // BACK: /analysis/history/:siloId/:sensorType?range=... OU ?start=&end=
     const url = `/analysis/history/${encodeURIComponent(siloId)}/${encodeURIComponent(sensorType)}?${queryString.replace(/^&/, "")}`;
     const raw = await authManager.makeRequest(url);
     if (!Array.isArray(raw)) return [];
 
-    // Normaliza: timestamp/value -> { x:ms, y:number }
     return raw
       .filter(p => p && p.timestamp && p.value != null)
       .map(p => ({
-        t: new Date(p.timestamp).getTime(), // ms
+        t: new Date(p.timestamp).getTime(),
         v: Number(p.value)
       }))
       .filter(p => Number.isFinite(p.v) && Number.isFinite(p.t))
@@ -340,7 +392,29 @@
     });
   }
 
-  // ---------- Chart (série temporal) ----------
+  // ---------- Chart série temporal ----------
+
+  // Cores para cada mês (Jan..Dez)
+  const MONTH_COLORS = [
+    "rgb(255, 99, 132)",   // Jan
+    "rgb(54, 162, 235)",   // Fev
+    "rgb(255, 206, 86)",   // Mar
+    "rgb(75, 192, 192)",   // Abr
+    "rgb(153, 102, 255)",  // Mai
+    "rgb(255, 159, 64)",   // Jun
+    "rgb(201, 203, 207)",  // Jul
+    "rgb(255, 99, 71)",    // Ago
+    "rgb(46, 139, 87)",    // Set
+    "rgb(123, 104, 238)",  // Out
+    "rgb(210, 105, 30)",   // Nov
+    "rgb(32, 178, 170)"    // Dez
+  ];
+
+  const MONTH_NAMES = [
+    "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+    "Jul", "Ago", "Set", "Out", "Nov", "Dez"
+  ];
+
   function toLineDataset(points, sensorType, label, dashed = false) {
     const cfg = U.getSensorConfig(sensorType);
     const rgb = cfg.color;
@@ -357,6 +431,77 @@
       borderDash: dashed ? [6, 6] : [],
       spanGaps: true
     };
+  }
+
+  // Agrupa pontos por ano
+  function groupByYear(points) {
+    const map = new Map(); // year -> array de pontos
+    points.forEach(p => {
+      const year = new Date(p.t).getFullYear();
+      if (!map.has(year)) map.set(year, []);
+      map.get(year).push(p);
+    });
+    return map;
+  }
+
+  // Preenche o select de ano com base nos dados disponíveis
+  function populateYearSelectFromData(points) {
+    const yearSel = document.getElementById("yearSelect");
+    if (!yearSel) return;
+
+    const yearMap = groupByYear(points);
+    const years = Array.from(yearMap.keys()).sort((a, b) => a - b);
+    const currentYear = new Date().getFullYear();
+
+    yearSel.innerHTML = "";
+    years.forEach(y => {
+      const opt = document.createElement("option");
+      opt.value = String(y);
+      opt.textContent = (y === currentYear) ? `${y} (atual)` : String(y);
+      yearSel.appendChild(opt);
+    });
+
+    if (years.includes(currentYear)) {
+      yearSel.value = String(currentYear);
+    } else if (years.length) {
+      yearSel.value = String(years[years.length - 1]);
+    }
+  }
+
+  // Filtra a série para o ano escolhido
+  function filterSeriesBySelectedYear(points) {
+    const yearSel = document.getElementById("yearSelect");
+    if (!yearSel || !yearSel.value) return points;
+
+    const targetYear = Number(yearSel.value);
+    if (!Number.isFinite(targetYear)) return points;
+
+    return points.filter(p => new Date(p.t).getFullYear() === targetYear);
+  }
+
+  // Cria um dataset por mês para o ano filtrado
+  function buildMonthlyDatasets(points, sensorType) {
+    const monthMap = new Map(); // monthIndex -> pontos
+    points.forEach(p => {
+      const d = new Date(p.t);
+      const m = d.getMonth(); // 0..11
+      if (!monthMap.has(m)) monthMap.set(m, []);
+      monthMap.get(m).push(p);
+    });
+
+    const datasets = [];
+    Array.from(monthMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .forEach(([m, pts]) => {
+        const baseColor = MONTH_COLORS[m % MONTH_COLORS.length];
+        const ds = toLineDataset(pts, sensorType, MONTH_NAMES[m]);
+        ds.borderColor = baseColor;
+        ds.backgroundColor = baseColor.replace("rgb", "rgba").replace(")", ", 0.2)");
+        ds.fill = false; // apenas linha
+        datasets.push(ds);
+      });
+
+    return datasets;
   }
 
   function unitByRange(r) {
@@ -422,7 +567,7 @@
   function hideChartEmptyState() { showChartEmptyState(false); }
 
   // =====================================================================
-  // ===================== COMPARATIVO MENSAL MULTI-ANO ===================
+  // ===================== COMPARATIVO MENSAL MULTI-ANO ==================
   // =====================================================================
 
   const YEAR_COLORS = [
@@ -441,7 +586,6 @@
     if (startISO) params.set("start", startISO);
     if (endISO) params.set("end", endISO);
 
-    // Mesmo host/proxy das outras rotas
     return authManager.makeRequest(`/analysis/monthly?${params.toString()}`);
   }
 
@@ -528,7 +672,6 @@
 
     try {
       U.notify("info", "Carregando comparativo mensal por ano...");
-      // Padrão: últimos 3 anos. Para fixar anos: passe uma string CSV (ex.: "2018,2019,2020")
       const payload = await fetchMonthlySeries(siloId, sensorType, null, 3);
       if (!payload?.years?.length) {
         U.notify("info", "Sem dados para montar o comparativo.");
@@ -543,5 +686,256 @@
     }
   }
 
-  // =================== /COMPARATIVO MENSAL MULTI-ANO ======================
+  // =====================================================================
+  // ====================== PREVISÃO PYSPARK (NOVO) ======================
+  // =====================================================================
+
+  /**
+   * Dispara a previsão no backend.
+   * Agora suporta qualquer tipo de sensor que o backend aceite:
+   *  - temperature
+   *  - humidity
+   *  - (outros, se você quiser no futuro)
+   *
+   * A diferença para a versão antiga é:
+   *  - NÃO força mais o sensor para 'temperature'
+   *  - Envia o tipo de sensor via query string: ?type=temperature|humidity
+   */
+    async function onForecast() {
+    const siloId = document.getElementById("siloSelect")?.value;
+    const sensorType = document.getElementById("sensorTypeSelect")?.value || "temperature";
+
+    if (!siloId) {
+      U.notify("warning", "Selecione um silo para rodar a previsão.");
+      return;
+    }
+
+    try {
+      U.notify("info", "Executando modelo PySpark (pode levar alguns segundos)...");
+
+      // >>> Agora envia o tipo de sensor para o backend
+      const payload = await authManager.makeRequest(
+        `/analysis/forecast/${encodeURIComponent(siloId)}?type=${encodeURIComponent(sensorType)}`
+      );
+
+      if (!payload || !payload.ok) {
+        U.notify("error", payload?.message || "Falha ao rodar previsão.");
+        return;
+      }
+
+      // Renderiza cartões e gráficos usando o tipo retornado
+      renderForecastCards(payload);
+      renderForecastHistoryChart(payload);
+      renderForecastTestChart(payload);
+
+      U.notify("success", "Previsão gerada com sucesso!");
+    } catch (e) {
+      console.error(e);
+      U.notify("error", "Erro ao executar previsões (PySpark).");
+    }
+  }
+
+
+  /**
+   * Preenche os cards de resumo da previsão.
+   * Agora funciona tanto para TEMPERATURA quanto para UMIDADE.
+   */
+    function renderForecastCards(data) {
+    const ins = data.insights || {};
+    const met = data.metrics || {};
+    const sensorType = (data.sensor_type || "temperature");
+
+    // Pega unidade certa a partir do tipo de sensor
+    const cfg = U.getSensorConfig(sensorType);
+    const unit = cfg.unit || "";
+
+    // Usa campos genéricos, com fallback pros específicos
+    const last = Number(
+      ins.last_value ??
+      (sensorType === "temperature" ? ins.last_temperature : ins.last_humidity)
+    );
+    const mean = Number(
+      ins.mean_value ??
+      (sensorType === "temperature" ? ins.mean_temperature : ins.mean_humidity)
+    );
+    const vmin = Number(
+      ins.min_value ??
+      (sensorType === "temperature" ? ins.min_temperature : ins.min_humidity)
+    );
+    const vmax = Number(
+      ins.max_value ??
+      (sensorType === "temperature" ? ins.max_temperature : ins.max_humidity)
+    );
+
+    const rmse = Number(met.rmse);
+    const r2   = Number(met.r2);
+    const corr = (ins.temp_humi_correlation != null) ? Number(ins.temp_humi_correlation) : null;
+
+    const fmtVal = (v) => Number.isFinite(v) ? `${v.toFixed(2)} ${unit}` : "—";
+
+    const elLast  = document.getElementById("fcLastTemp");
+    const elMean  = document.getElementById("fcMeanTemp");
+    const elMM    = document.getElementById("fcMinMaxTemp");
+    const elMet   = document.getElementById("fcMetrics");
+    const elTrend = document.getElementById("fcTrend");
+    const elCorr  = document.getElementById("fcCorr");
+
+    if (elLast)  elLast.textContent  = fmtVal(last);
+    if (elMean)  elMean.textContent  = fmtVal(mean);
+    if (elMM)    elMM.textContent    = (Number.isFinite(vmin) && Number.isFinite(vmax))
+      ? `${vmin.toFixed(2)} / ${vmax.toFixed(2)} ${unit}`
+      : "—";
+    if (elMet)   elMet.textContent   = (Number.isFinite(rmse) || Number.isFinite(r2))
+      ? `RMSE: ${Number.isFinite(rmse)?rmse.toFixed(2):"—"} | R²: ${Number.isFinite(r2)?r2.toFixed(3):"—"}`
+      : "—";
+    if (elTrend) elTrend.textContent = ins.trend || "—";
+    if (elCorr)  elCorr.textContent  = (corr == null || !Number.isFinite(corr))
+      ? "—"
+      : corr.toFixed(2);
+  }
+
+
+    /**
+   * Gráfico combinado HISTÓRICO + FUTURO.
+   * Agora respeita o tipo de sensor retornado pelo backend.
+   */
+    function renderForecastHistoryChart(payload) {
+    const el = document.getElementById("forecastHistoryChart");
+    if (!el) return;
+    const ctx = el.getContext("2d");
+    if (forecastHistChart) forecastHistChart.destroy();
+
+    const sensorType = payload.sensor_type || "temperature";
+    const cfg = U.getSensorConfig(sensorType);   // <<< unidade correta
+
+    const histLabels = payload.history?.labels || [];
+    const histValues = (payload.history?.values || []).map(v => Number(v));
+
+    const future = payload.future_forecast || [];
+    const futureLabels = future.map(p => p.date_label || p.date_iso || `+${p.step}`);
+    const futureValues = future.map(p => Number(p.prediction));
+
+    const labels = [...histLabels, ...futureLabels];
+
+    const histData   = [...histValues, ...new Array(futureValues.length).fill(null)];
+    const futureData = [...new Array(histValues.length).fill(null), ...futureValues];
+
+    forecastHistChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Histórico",
+            data: histData,
+            borderColor: cfg.color,
+            backgroundColor: cfg.color.replace("rgb", "rgba").replace(")", ", 0.15)"),
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.25,
+            fill: true,
+            spanGaps: true
+          },
+          {
+            label: "Previsão (próximos pontos)",
+            data: futureData,
+            borderColor: "rgb(54, 162, 235)",
+            backgroundColor: "rgba(54, 162, 235, 0.15)",
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.25,
+            fill: true,
+            borderDash: [6, 6],
+            spanGaps: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { title: { display: true, text: "Tempo (histórico + futuro)" } },
+          y: { title: { display: true, text: `${cfg.displayName} (${cfg.unit})` } }
+        },
+        plugins: {
+          legend: { position: "top" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const y = ctx.parsed.y;
+                return `${ctx.dataset.label}: ${Number.isFinite(y)?y.toFixed(2):"—"} ${cfg.unit}`;
+              }
+            }
+          }
+        },
+        elements: { point: { radius: 0 } }
+      }
+    });
+  }
+
+  function renderForecastTestChart(payload) {
+    const el = document.getElementById("forecastTestChart");
+    if (!el) return;
+    const ctx = el.getContext("2d");
+    if (forecastTestChart) forecastTestChart.destroy();
+
+    const sensorType = payload.sensor_type || "temperature";
+    const cfg = U.getSensorConfig(sensorType);
+
+    const labels = payload.test_predictions?.labels || [];
+    const real   = (payload.test_predictions?.real || []).map(v => Number(v));
+    const pred   = (payload.test_predictions?.predicted || []).map(v => Number(v));
+
+    forecastTestChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Real (teste)",
+            data: real,
+            borderColor: cfg.color,
+            backgroundColor: cfg.color.replace("rgb", "rgba").replace(")", ", 0.15)"),
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.25,
+            fill: false
+          },
+          {
+            label: "Previsto",
+            data: pred,
+            borderColor: "rgb(54, 162, 235)",
+            backgroundColor: "rgba(54, 162, 235, 0.15)",
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.25,
+            fill: false,
+            borderDash: [6, 6]
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { title: { display: true, text: "Tempo (conjunto de teste)" } },
+          y: { title: { display: true, text: `${cfg.displayName} (${cfg.unit})` } }
+        },
+        plugins: {
+          legend: { position: "top" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const y = ctx.parsed.y;
+                return `${ctx.dataset.label}: ${Number.isFinite(y)?y.toFixed(2):"—"} ${cfg.unit}`;
+              }
+            }
+          }
+        },
+        elements: { point: { radius: 0 } }
+      }
+    });
+  }
+
+
 })();

@@ -451,6 +451,17 @@
     transition: background var(--transition-fast);
 }
 
+/* ===== PAGINAÇÃO DA LISTA DE ALERTAS ===== */
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin: 16px auto 0;
+    width: 100%;
+    text-align: center;
+}
+
 .alert-item:last-child {
     border-bottom: none;
 }

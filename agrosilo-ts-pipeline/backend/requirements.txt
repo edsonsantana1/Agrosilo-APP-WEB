@@ -16,3 +16,7 @@ qrcode[pil]==7.4.2
 Pillow==10.4.0
 passlib[bcrypt]
 PyJWT>=2.9
+pandas
+matplotlib
+pyspark
+scikit-learn
