@@ -1,0 +1,32 @@
+services:
+  # ==========================
+  # 1) BACKEND NODE (API)
+  # ==========================
+  - type: web
+    name: agrosilo-backend
+    runtime: node            # <- antes estava: env: node
+    rootDir: backend
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    autoDeploy: true
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+
+  # ==========================
+  # 2) PIPELINE FASTAPI (PYTHON)
+  # ==========================
+  - type: web
+    name: agrosilo-ts-pipeline
+    runtime: python          # <- antes estava: env: python
+    rootDir: agrosilo-ts-pipeline/backend
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python run.py"
+    autoDeploy: true
+    envVars:
+      - key: MONGODB_URI
+        sync: false
