@@ -1,46 +1,124 @@
- # Agrosilo — IoT Grain Silo Monitoring (FastAPI + MongoDB + ThingSpeak)
+# 🚀 Agrosilo – Plataforma de Monitoramento de Silos Inteligentes
 
-> **Agrosilo** é uma pipeline IoT para monitoramento de silos de grãos (temperatura, umidade e pressão opcional) usando **ESP32 + DHT11 → ThingSpeak → FastAPI → MongoDB (time‑series)**, com tratamento de dados, avaliações operacionais (*assessments*), e endpoints para histórico e análises. O projeto demonstra princípios **SOLID**, qualidade de dados e execução **assíncrona** ponta a ponta.
+**Sistema de coleta, análise e monitoramento de temperatura e umidade em silos agrícolas.**
 
-##  Principais recursos
-- Coleta assíncrona do ThingSpeak com `httpx` e *polling* configurável
-- Tratamento de dados: parsing, normalização de timestamps (UTC), validação por **faixas físicas**, **anti‑salto** (spike filter) e ordenação temporal
-- Persistência em **MongoDB time‑series** com índice único `{sensor, ts}` e **upsert idempotente**
-- **Assessments** por (silo, ts) com limiares configuráveis, recomendações de **aeração** e *notes* operacionais
-- API FastAPI com `/health`, `/trigger-sync`, `/history` e rotas `/analysis/*` (hist/aggregate/scatter/export/report)
-- Configuração via **variáveis de ambiente**; semântica estável para logs e composição de dependências
-- Aplicação dos princípios **SOLID**: SRP, OCP, LSP, ISP, DIP
+## Deploys
 
-##  Arquitetura 
+| Serviço | URL |
+| :--- | :--- |
+| **Frontend (Netlify)** | [https://agrosilo-monitoramento-de-silos.netlify.app/](https://agrosilo-monitoramento-de-silos.netlify.app/) |
+| **Repositório GitHub** | [https://github.com/edsonsantana1/Agrosilo-APP-WEB](https://github.com/edsonsantana1/Agrosilo-APP-WEB) |
+
+## 📝 Visão Geral do Projeto
+
+O Agrosilo é uma plataforma digital desenvolvida para produtores rurais monitorarem, em tempo real, as condições internas de seus silos — especialmente temperatura e umidade, fatores que determinam perdas, proliferação de fungos e variações na qualidade dos grãos.
+
+O sistema integra os seguintes componentes:
+
+*   Dispositivo IoT (DHT11 + ESP32)
+*   ThingSpeak (coleta intermediária)
+*   FastAPI Pipeline (ETL e limpeza de dados)
+*   Node.js (backend principal + alertas + controle de usuários)
+*   React.js (frontend responsivo)
+*   MongoDB (time-series para armazenamento dos dados)
+*   Sistema MFA (2FA)
+
+## 🧩 Arquitetura Completa do Sistema
+
+A arquitetura do sistema segue um fluxo modular e sequencial:
+
 ```
 IoT (ESP32/DHT11) → ThingSpeak → FastAPI (ThingSpeakClient)
-                              → IngestService (parse, validar, anti‑salto, upsert) 
-                              → MongoDB (time‑series + índices)
-                              → AssessmentRepository (regras + deduplicação)
-Frontend/Node ← API (/history, /trigger-sync, /analysis/*)
+                              → (FastAPI – ETL Pipeline - agrosilo-ts-pipeline) → (limpeza/normalização) + (cálculos estatísticos) + (agregações / degrau térmico)
+                              → (MongoDB - Time‑series + índices)
+                              → (Node.js Backend - autenticação, alertas, MFA, email)
+Frontend (React.js Frontend - Netlify)
 ```
 
-##  Estrutura (resumo)
-```
-agrosilo-ts-pipeline/
-  backend/
-    app/
-      analysis/                 # rotas de análise (hist/agg/scatter/export/report)
-      assessments.py            # repo de assessments: índice único (silo, ts) + dedup + upsert
-      domain.py                 # entidades e portas (Protocols)
-      repositories.py           # SensorRepository / ReadingRepository (time-series)
-      services.py               # IngestService (tratamento/negócio)
-      thingspeak_client.py      # cliente httpx para ThingSpeak
-      api.py                    # composição FastAPI + scheduler
-      utils.py                  # utilitários (ex.: CORS)
-    .env                        # variáveis de ambiente (NÃO versionar)
-    run.py                      # entrypoint uvicorn
-  frontend/                     # páginas estáticas (dashboard)
-  backend/ (node-proxy opcional)# server.js + rotas (se aplicável)
-```
+## 🛠 Tecnologias Utilizadas
 
-##  Variáveis de ambiente (exemplo)
-Crie `backend/.env` com:
+### Frontend (React.js – Netlify)
+
+*   Axios
+*   Recharts (gráficos)
+*   Styled Components
+*   Context API
+*   JWT Auth
+*   Dashboard Responsivo
+
+### Backend Node.js
+
+*   Node.js 22
+*   Express
+*   Axios (proxy para FastAPI)
+*   JWT / Middleware de autenticação
+*   Nodemailer (envio de emails)
+*   Bcrypt (hash de senhas)
+*   Scheduler (notificações)
+*   MFA 2FA via TOTP (Google Authenticator)
+
+### FastAPI – ETL Pipeline
+
+*   FastAPI 0.115
+*   Motor (MongoDB client)
+*   Python Dotenv
+*   Pandas, NumPy
+*   PyOTP (2FA)
+*   QrCode PIL
+*   Relatórios: ReportLab
+*   Previsão: Scikit-Learn / PySpark
+
+### Banco de Dados
+
+*   MongoDB Atlas
+*   **Coleções:**
+    *   `readings` (Time-Series)
+    *   `alerts`
+    *   `users`
+    *   `grain_assessments`
+    *   `sensors`
+    *   `silos`
+
+## 📊 Gráficos Utilizados nas Telas
+
+| Tela | Gráfico | Componentes/Detalhes |
+| :--- | :--- | :--- |
+| **Dashboard – Tela Inicial** | LineChart – Temperatura x Tempo | Tooltip, CartesianGrid, XAxis, YAxis, Legend |
+| | LineChart – Umidade x Tempo | |
+| **Análises Avançadas** | ScatterChart – Correlação T/U | |
+| | BarChart – Médias Mensais | |
+| | AreaChart – Perfil Sazonal | |
+| | LineChart (multiline) – Picos e variações | |
+| **Alertas** | Lista dinâmica com níveis | Normal, Atenção, Crítico. Cores por risco. Telas de detalhes. |
+| **Usuários / Login / MFA** | Telas responsivas | QR Code para MFA (Google Authenticator). Flow completo de registro → ativação → verificação. |
+
+## 🖼 Telas do Sistema
+
+*   ✔ Login e Registro (com MFA)
+*   ✔ Dashboard Principal
+*   ✔ Análises
+*   ✔ Histórico por Silo
+*   ✔ Alertas
+*   ✔ Perfil do Usuário
+
+> **Observação:** As telas Usuários, Análise e Alertas ainda não estão totalmente responsivas para mobile.
+
+## 🧪 Funcionalidades Implementadas
+
+*   ✔ Coleta automática via IoT
+*   ✔ ETL com tratamento de dados
+*   ✔ Previsão de comportamento térmico (FastAPI)
+*   ✔ Relatórios em PDF
+*   ✔ CSV export
+*   ✔ Notificações automáticas
+*   ✔ MFA via Google Authenticator
+*   ✔ Sistema de login + JWT
+*   ✔ Painel de tendências
+*   ✔ Alertas Inteligentes
+
+## ⚙️ Variáveis de Ambiente (Exemplo)
+
+Crie `backend/.env` e `agrosilo-ts-pipeline/.env` com:
 ```
 # Mongo
 MONGODB_URI=mongodb+srv://usuario:senha@host/db?retryWrites=true&w=majority
@@ -54,100 +132,47 @@ TS_FIELD_HUM=2
 # TS_FIELD_PRESS=3           # opcional
 TS_FETCH_RESULTS=100
 
+# Se usar Gmail (cota baixa; em produção prefira SendGrid/SES)
+# Gmail
+EMAIL_ENABLED=true
+EMAIL_USER=agrosilo2025@gmail.com
+EMAIL_PASS=ydud ududu dudud ouid
+##EMAIL_MIN_INTERVAL_MS=120000     # 2 minutos
+
+# ===== Janelas por nível (e-mail) =====
+EMAIL_INTERVAL_CRITICAL_MS=120000      # 2 min
+EMAIL_INTERVAL_WARNING_MS=300000       # 5 min
+EMAIL_INTERVAL_CAUTION_MS=1800000      # 30 min
+
+# ===== Notifier =====
+ALERT_NOTIFIER_TICK_MS=60000           # verifica a cada 1 min
+
 # Execução
 POLL_SECONDS=15
 SILO_ID=64f0...c9a          # ObjectId do silo no Mongo
 API_HOST=0.0.0.0
 API_PORT=8000
-```
 
-##  Como rodar (backend FastAPI)
-```bash
-# 1) Entrar no diretório do backend
-cd agrosilo-ts-pipeline/backend
+## 🔧 Instalação e Execução (Desenvolvedores)
 
-# 2) Criar e ativar venv (Windows PowerShell)
-python -m venv .venv
-. .venv/Scripts/Activate.ps1
+| Serviço | Comandos |
+| :--- | :--- |
+| **Frontend** | \`\`\`bash\ncd frontend\nnpm install\nnpm start\n\`\`\` |
+| **Backend Node** | \`\`\`bash\ncd backend\nnpm install\nnpm start\n\`\`\` |
+| **Pipeline FastAPI** | \`\`\`bash\ncd agrosilo-ts-pipeline\npip install -r requirements.txt\npython run.py\n\`\`\` |
 
-# 3) Instalar dependências
-pip install -r requirements.txt
+## 📚 Equipe
 
-# 4) Configurar .env (ver seção acima) e iniciar
-python run.py
-# ou: uvicorn app.api:app --host 0.0.0.0 --port 8000 --reload
-```
+**Projeto Acadêmico – Faculdade Estácio**
+**Grupo 2 – Agrosilo**
 
-##  SOLID na prática
-- **SRP** – cada arquivo tem uma responsabilidade clara (coleta, regra, persistência, análises, orquestração)
-- **OCP** – adicionar novo sensor (ex.: CO₂) estende `sync_all()` via `_sync_one`, sem modificar lógica existente
-- **LSP** – repositórios podem ser substituídos por *fakes* em testes; *ports* definem contratos
-- **ISP** – interfaces mínimas (somente métodos necessários por caso de uso)
-- **DIP** – composição concreta em `api.py`; `IngestService` depende de abstrações (`ISensorRepository`, `IReadingRepository`)
+*   Edson
+*   Juliana
+*   Patricia
+*   Ricardo
+*   Nycole
 
-##  Segurança e boas práticas
-- Não comitar `.env` (use esteio de secrets)
-- Restringir CORS em produção (domínios confiáveis)
-- Validar entradas e tratar erros de rede (timeouts, backoff)
-- Privilégios mínimos no Mongo (usuário com permissões limitadas)
+## 🏁 Conclusão
 
-##  Observabilidade (sugestões)
-- Logs estruturados (JSON) para polling e ingestão
-- Métricas (contagem recebidos/armazenados/descartados, latência, lag)
-- Tracing distribuído (OpenTelemetry) se houver múltiplos serviços
+O Agrosilo é um sistema completo para monitoramento inteligente de silos, unindo IoT, análise de dados, previsões, alertas e uma interface amigável. A arquitetura modular permite evoluções rápidas e integrações com novos sensores e algoritmos.
 
-##  Roadmap (idéias)
-- Suporte a CO₂ e eventos de alerta (Telegram/Email)
-- Cache curto para `/history`
-- Painéis com charts no frontend
-- Dockerfiles & Compose para dev/produção
-
-## 📝 Licença
-MIT (sugestão). Ajuste conforme sua necessidade.
-
----
-
-## 🚀 Como subir para o GitHub (passo a passo)
-
-> Pré‑requisitos: **Git** instalado e conta no GitHub.
-
-### 1) Inicializar o repositório local
-```bash
-# na raiz do projeto (onde está o README)
-git init
-git config user.name "Seu Nome"
-git config user.email "seu-email@exemplo.com"
-```
-
-### 2) Criar .gitignore e confirmar arquivos
-Crie um `.gitignore` (veja abaixo) e então:
-```bash
-git add .
-git commit -m "chore: inicializa projeto Agrosilo com backend FastAPI e docs"
-```
-
-### 3) Criar o repositório remoto
-Via navegador: GitHub → New repository → **agrosilo** (público/privado) → *Create*.
-
-Ou via CLI (se tiver o GitHub CLI):
-```bash
-gh repo create agrosilo --public --source=. --remote=origin --push
-```
-
-### 4) Vincular e enviar (se criou pelo navegador)
-```bash
-git remote add origin https://github.com/<seu-usuario>/agrosilo.git
-git branch -M main
-git push -u origin main
-```
-
-### 5) Criar releases/tags (opcional)
-```bash
-git tag -a v1.0.0 -m "Primeira versão estável do pipeline"
-git push origin v1.0.0
-```
-
----
-
-## 📄 .gitignore recomendado (trecho)
-Veja o arquivo `.gitignore` neste repositório para Python + Node + VSCode + env.
