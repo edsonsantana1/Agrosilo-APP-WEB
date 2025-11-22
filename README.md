@@ -116,11 +116,10 @@ Frontend (React.js Frontend - Netlify)
 *   ✔ Painel de tendências
 *   ✔ Alertas Inteligentes
 
-## Variáveis de Ambiente (Exemplo)
+## ⚙️ Variáveis de Ambiente (Exemplo)
 
-Crie `backend/.env` e `agrosilo-ts-pipeline/backend/.env` com as seguintes variáveis:
-
-\`\`\`dotenv
+Crie `backend/.env` e `agrosilo-ts-pipeline/.env` com:
+```
 # Mongo
 MONGODB_URI=mongodb+srv://usuario:senha@host/db?retryWrites=true&w=majority
 MONGODB_DB=agrosilo
@@ -148,13 +147,11 @@ EMAIL_INTERVAL_CAUTION_MS=1800000      # 30 min
 # ===== Notifier =====
 ALERT_NOTIFIER_TICK_MS=60000           # verifica a cada 1 min
 
-
 # Execução
 POLL_SECONDS=15
 SILO_ID=64f0...c9a          # ObjectId do silo no Mongo
 API_HOST=0.0.0.0
 API_PORT=8000
-\`\`\`
 
 ## 🔧 Instalação e Execução (Desenvolvedores)
 
