@@ -14,6 +14,10 @@ Pontos principais:
 - Calcula métricas (RMSE, R², inclinação)
 - Gera correlação temperatura x umidade (se ambos existirem)
 - Estrutura de saída compatível com o front atual
+
+ATENÇÃO:
+- Nenhum segredo (ex.: MONGODB_URI) deve ficar hardcoded aqui.
+  Tudo vem de variáveis de ambiente (.env + load_dotenv no app/api.py).
 """
 
 import os
@@ -33,11 +37,16 @@ from sklearn.metrics import mean_squared_error, r2_score
 # -------------------------------------------------------------------
 # Configurações MongoDB
 # -------------------------------------------------------------------
-MONGO_URI = os.getenv(
-    "MONGODB_URI",
-    "mongodb+srv://agrosilo2025_db_user:3ZRT8O3JXNndEWIP@agrosilo.4ec2ahk.mongodb.net/"
-    "?retryWrites=true&w=majority"
-)
+# Agora NÃO temos mais valor default com usuário/senha.
+# Se MONGODB_URI não estiver definido, levantamos erro explícito.
+MONGO_URI = os.getenv("MONGODB_URI")
+if not MONGO_URI:
+    raise RuntimeError(
+        "MONGODB_URI não definido nas variáveis de ambiente. "
+        "Configure no arquivo .env ou no ambiente do servidor."
+    )
+
+# Nome do banco em si não é segredo, pode ter default.
 MONGO_DB = os.getenv("MONGODB_DB", "test")
 
 SENSORS_COLLECTION = "sensors"
