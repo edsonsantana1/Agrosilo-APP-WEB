@@ -1,12 +1,22 @@
 /**
  * Configurações globais do aplicativo Agrosilo
  */
-const API_CONFIG = {
-  baseURL: 'http://localhost:4000/api',
+// frontend/js/config.js
+
+// ✅ URL pública do backend no Render
+const API_BASE = "https://agrosilo-backend.onrender.com/api";
+
+window.API_CONFIG = {
+  baseURL: API_BASE,
   timeout: 10000,
-  headers: { 'Content-Type': 'application/json' }
+  defaultHeaders: {
+    "Content-Type": "application/json",
+  },
 };
-window.API_URL = API_CONFIG.baseURL;
+
+// Mantém essa variável global caso algum script use
+window.API_URL = API_BASE;
+
 
 const AUTH_CONFIG = {
   tokenKey: 'agrosilo_token',
