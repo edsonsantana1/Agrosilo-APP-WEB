@@ -156,14 +156,14 @@ API_PORT=8000
 ## 🔧 Instalação e Execução (Desenvolvedores)
 
 | Serviço | Comandos |
-| :--- | :--- |
-| **Frontend** | \`\`\`bash\ncd frontend\nnpm install\nnpm start\n\`\`\` |
-| **Backend Node** | \`\`\`bash\ncd backend\nnpm install\nnpm start\n\`\`\` |
-| **Pipeline FastAPI** | \`\`\`bash\ncd agrosilo-ts-pipeline\npip install -r requirements.txt\npython run.py\n\`\`\` |
+| 
+| **Frontend** | bash\cd frontend\npm install\npm start |
+| **Backend Node** | bash\cd backend\npm install\npm start |
+| **Pipeline FastAPI** | bash\cd agrosilo-ts-pipeline\ pip install -r requirements.txt\  python run.py |
 
 ## 📚 Equipe
 
-**Projeto Acadêmico – Faculdade Estácio**
+**Projeto Intregador**
 **Grupo 2 – Agrosilo**
 
 *   Edson
