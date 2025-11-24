@@ -18,6 +18,7 @@ const thingSpeakRoutes = require('./routes/thingspeak');
 const telegramRoutes   = require('./routes/telegram');
 const iotRoutes        = require('./routes/iot');
 const thresholdsRoutes = require('./routes/thresholds');
+const dashboardRoutes  = require('./routes/dashboard');
 
 const { run: runAlertFromAssessment } = require('./jobs/alertFromAssessment');
 setInterval(runAlertFromAssessment, 60 * 1000);
@@ -64,6 +65,7 @@ app.use('/api/thingspeak', auth, thingSpeakRoutes);
 app.use('/api/telegram', telegramRoutes);
 app.use('/api/thresholds', auth, thresholdsRoutes);
 app.use('/api/policy', require('./routes/policy'));
+app.use('/api/dashboard', auth, dashboardRoutes);
 
 // ===== Proxy → FastAPI
 const FASTAPI_TARGET = process.env.FASTAPI_TARGET || 'http://127.0.0.1:8000';

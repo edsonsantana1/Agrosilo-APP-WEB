@@ -180,7 +180,7 @@ async function collectPoints({ sensors, start, end, hardLimit }){
       const ts = new Date(p.timestamp);
       if (start && ts < start) continue;
       if (end   && ts > end)   continue;
-      points.push({ timestamp: ts, value: Number(p.value), sensorId: s._id });
+      points.push({ timestamp: ts, value: Number(p.value), sensorId: s._id, sensorType: s.type });
     }
   }
 
@@ -189,6 +189,9 @@ async function collectPoints({ sensors, start, end, hardLimit }){
     const ids = sensors.map(s => s._id);
     if (ids.length) {
       points = await collectFromTimeSeries({ ids, start, end, hardLimit });
+      // Adicionar o tipo de sensor aos pontos coletados
+      const sensorMap = sensors.reduce((acc, s) => { acc[s._id] = s.type; return acc; }, {});
+      points = points.map(p => ({ ...p, sensorType: sensorMap[p.sensorId] }));
     }
   }
 
@@ -232,6 +235,64 @@ router.get('/history/:siloId/:sensorType', async (req,res)=>{
   }catch(err){
     console.error('[analysis/history] erro:', err);
     res.status(err.status||500).json({ error: err.message || 'Erro ao carregar histórico' });
+  }
+});
+
+
+
+// Dados para o Overview Chart
+router.get('/overview-data/:siloId', async (req,res)=>{
+  try{
+    const { siloId } = req.params;
+    const { range='24h', start, end, limit } = req.query;
+
+    await ensureSiloOwnership(siloId, req.user._id);
+
+    const { start:s, end:e } = resolvePeriod({ range, start, end });
+    const hardLimit = clampLimit(limit, 500, 2000); // Limite menor para o dashboard
+
+    // 1. Coletar dados de Temperatura e Umidade
+    const tempSensors = await Sensor.find({ silo:siloId, type:'temperature' }).select('_id data type').lean();
+    const humSensors  = await Sensor.find({ silo:siloId, type:'humidity' }).select('_id data type').lean();
+
+    const sensors = [...tempSensors, ...humSensors];
+    if (!sensors.length) return res.json({ temperature: [], humidity: [] });
+
+    const points = await collectPoints({ sensors, start:s, end:e, hardLimit });
+
+    // 2. Mapear os dados para o formato do gráfico e calcular o risco
+    const data = points.map(p => {
+      let riskBand = 'normal';
+      if (p.sensorType === 'humidity') {
+        const p_hum = SAFETY_PARAMETERS.humidity;
+        // > 16% = critical, 13-16% = warning, < 13% = normal/caution
+        if (p.value > p_hum.fungus_risk) riskBand = 'critical'; // > 16%
+        else if (p.value >= p_hum.acceptable) riskBand = 'warning'; // 14-16%
+        else if (p.value >= p_hum.safe) riskBand = 'caution'; // 13-14%
+      } else if (p.sensorType === 'temperature') {
+        const p_temp = SAFETY_PARAMETERS.temperature;
+        // 40-55°C = critical, 20-30°C = warning, ~15°C = normal/caution
+        if (p.value >= p_temp.high_risk_max) riskBand = 'critical'; // >= 55°C
+        else if (p.value >= p_temp.high_risk_min) riskBand = 'warning'; // 40-54.9°C
+        else if (p.value >= p_temp.medium_growth_min) riskBand = 'caution'; // 20-39.9°C
+      }
+
+      return {
+        t: p.timestamp.toISOString(),
+        v: p.value,
+        type: p.sensorType,
+        risk: riskBand
+      };
+    });
+
+    res.json({
+      temperature: data.filter(p => p.type === 'temperature'),
+      humidity: data.filter(p => p.type === 'humidity'),
+    });
+
+  }catch(err){
+    console.error('[analysis/overview-data] erro:', err);
+    res.status(err.status||500).json({ error: err.message || 'Erro ao carregar dados de overview' });
   }
 });
 

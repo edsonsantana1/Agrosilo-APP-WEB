@@ -26,6 +26,7 @@ async function initializeDashboard() {
     setupUserInterface();
     await loadDashboardData();
     await buildOrUpdateCharts();
+    await initializeOverviewCharts(); // Inicializar os novos gráficos
     setupAutoRefresh();
     setupEventHandlers();
     showNotification('success', 'Dashboard carregado com sucesso!');
@@ -381,6 +382,7 @@ function setupAutoRefresh() {
 
       await loadDashboardData();
       await buildOrUpdateCharts();
+      await updateOverviewCharts(); // Atualizar os novos gráficos
       updateLastUpdateTime();
     } catch (error) {
       console.error('Erro na atualização automática:', error);

@@ -602,6 +602,20 @@
     border-left-color: var(--info-color);
 }
 
+/* New Charts Section */
+.new-charts-section {
+    margin-bottom: 32px;
+}
+
+.chart-card.full-width {
+    width: 100%;
+    margin-bottom: 24px;
+}
+
+.chart-card.full-width .chart-container {
+    height: 400px;
+}
+
 /* Empty States */
 .empty-state {
     text-align: center;

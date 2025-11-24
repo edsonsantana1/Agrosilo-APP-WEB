@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -71,7 +71,7 @@
 
             <!-- Status Cards -->
             <div class="status-cards">
-                <!-- 1) Temperatura (mantido) -->
+                <!-- 1) Temperatura -->
                 <div class="status-card">
                     <div class="status-icon temperature">
                         <i class="fas fa-thermometer-half"></i>
@@ -86,7 +86,7 @@
                     </div>
                 </div>
 
-                <!-- 2) Agora vem ALERTAS ATIVOS (trocado de lugar com Umidade) -->
+                <!-- 2) Alertas Ativos -->
                 <div class="status-card">
                     <div class="status-icon alerts">
                         <i class="fas fa-exclamation-triangle"></i>
@@ -100,7 +100,7 @@
                     </div>
                 </div>
 
-                <!-- 3) Silos Ativos (mantido na mesma posição relativa) -->
+                <!-- 3) Silos Ativos -->
                 <div class="status-card">
                     <div class="status-icon silos">
                         <i class="fas fa-warehouse"></i>
@@ -114,7 +114,7 @@
                     </div>
                 </div>
 
-                <!-- 4) Agora vem UMIDADE (foi para a última posição, onde estava Alertas) -->
+                <!-- 4) Umidade -->
                 <div class="status-card">
                     <div class="status-icon humidity">
                         <i class="fas fa-tint"></i>
@@ -161,7 +161,28 @@
                 </div>
             </div>
 
-            <!-- Silos Overview -->
+            <!-- Novos Gráficos (AGORA ACIMA da Visão Geral dos Silos) -->
+            <div class="new-charts-section">
+                <div class="chart-card full-width">
+                    <div class="chart-header">
+                        <h3>Recomendação Técnica – Evolução do Produto</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="productEvolutionChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card full-width">
+                    <div class="chart-header">
+                        <h3>Overview Chart (Temperatura, Umidade e Risco)</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="overviewChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Silos Overview (agora vem DEPOIS dos novos gráficos) -->
             <div class="silos-overview">
                 <div class="section-header">
                     <h3>Visão Geral dos Silos</h3>
@@ -176,7 +197,7 @@
                 </div>
             </div>
 
-            <!-- Recent Alerts -->
+            <!-- Alertas Recentes -->
             <div class="recent-alerts">
                 <div class="section-header">
                     <h3>Alertas Recentes</h3>
@@ -190,10 +211,11 @@
                     <!-- Alertas recentes serão carregados aqui -->
                 </div>
             </div>
+
         </div>
     </main>
 
-    <!-- Modal para Adicionar Silo -->
+    <!-- Modal: Adicionar Silo -->
     <div id="addSiloModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -265,6 +287,7 @@
     <!-- Scripts -->
     <script src="../js/config.js"></script>
     <script src="../js/auth.js"></script>
+    <script src="../js/charts-overview.js"></script>
     <script src="../js/dashboard.js"></script>
 </body>
 </html>
