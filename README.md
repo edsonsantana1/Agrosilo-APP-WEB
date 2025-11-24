@@ -8,7 +8,7 @@
 | :--- | :--- |
 | **Frontend (Netlify)** | [https://agrosilo-monitoramento-de-silos.netlify.app/](https://agrosilo-monitoramento-de-silos.netlify.app/) |
 | **Repositório GitHub** | [https://github.com/edsonsantana1/Agrosilo-APP-WEB](https://github.com/edsonsantana1/Agrosilo-APP-WEB) |
-| **AgrosiloPepiline**   | [https://agrosilo-ts-pipeline.onrender.com/docs#/](https://agrosilo-ts-pipeline.onrender.com/docs#/) |
+| **AgrosiloPepiline**   | [https://agrosilo-ts-pipeline.onrender.com/docs](https://agrosilo-ts-pipeline.onrender.com/docs) |
 
 ## 📝 Visão Geral do Projeto
 
