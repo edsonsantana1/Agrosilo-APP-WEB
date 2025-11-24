@@ -19,6 +19,8 @@ from .repositories import (
 )
 
 # ---------------- util: JSON-safe ----------------
+
+
 def _jsonify(obj):
     """Converte ObjectId/datetime e coleções aninhadas para tipos serializáveis em JSON."""
     if isinstance(obj, ObjectId):
@@ -41,6 +43,7 @@ def _jwt_settings() -> Dict[str, Any]:
         "issuer": os.getenv("MFA_ISSUER", "Agrosilo"),
     }
 
+
 def _jwt_decode(authorization_header: str) -> Optional[Dict[str, Any]]:
     if not authorization_header or not authorization_header.lower().startswith("bearer "):
         print("[MFA] Authorization ausente/sem Bearer")
@@ -52,6 +55,7 @@ def _jwt_decode(authorization_header: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         print(f"[MFA] Falha ao decodificar JWT: {e}")
         return None
+
 
 def _jwt_issue(payload: Dict[str, Any]) -> str:
     s = _jwt_settings()
@@ -73,9 +77,11 @@ def _make_qr_data_uri(otpauth_uri: str) -> str:
     data = base64.b64encode(buf.getvalue()).decode("ascii")
     return f"data:image/png;base64,{data}"
 
+
 def _make_otpauth(secret: str, email: str) -> str:
     totp = pyotp.TOTP(secret, digits=6, interval=30)
     return totp.provisioning_uri(name=email, issuer_name=_jwt_settings()["issuer"])
+
 
 def _generate_secret_and_qr(email: str) -> Tuple[str, str]:
     secret = pyotp.random_base32()
@@ -122,41 +128,59 @@ async def start_provisioning(authorization: str) -> Optional[dict]:
     return {"secret": secret, "qrCodeDataUri": data_uri}
 
 
-async def confirm_provision(authorization: str, secret: str, token: str) -> bool:
+async def confirm_provision(authorization: str, token: str) -> bool:
     """
     Confirma o provisionamento validando o TOTP.
-    Usa o secret salvo no usuário (mfa.secret); se não houver, aceita o 'secret' recebido como fallback.
-    Ao confirmar, marca mfa.enabled=True.
+    Usa SEMPRE o secret salvo no usuário (mfa.secret).
+    Ao confirmar, marca mfa.enabled = True.
     """
+    # 1) Decodifica o JWT do header Authorization
     claims = _jwt_decode(authorization)
     if not claims:
+        print("[MFA CONFIRM] JWT inválido ou ausente")
         return False
 
     user_id = claims.get("sub") or claims.get("userId") or claims.get("_id")
-    user = await find_user_by_id(user_id)
-    if not user:
+    if not user_id:
+        print("[MFA CONFIRM] JWT sem sub/userId")
         return False
 
+    # 2) Busca o usuário no Mongo
+    user = await find_user_by_id(user_id)
+    if not user:
+        print(f"[MFA CONFIRM] Usuário não encontrado para id={user_id}")
+        return False
+
+    # 3) Recupera o secret salvo no campo mfa.secret
     mfa = user.get("mfa") or {}
-    saved_secret = mfa.get("secret") or secret
+    saved_secret = mfa.get("secret")
+
     if not saved_secret:
         print(f"[MFA CONFIRM] Secret não encontrado para user_id={user_id}")
         return False
 
+    # 4) Valida o token TOTP informado
     totp = pyotp.TOTP(saved_secret, digits=6, interval=30)
     ok = totp.verify(token, valid_window=1)
 
-    if ok:
-        try:
-            await confirm_user_mfa(user["_id"])  # seta mfa.enabled=True (mantém o secret)
-        except Exception as e:
-            print(f"[MFA CONFIRM] ERRO ao salvar no DB para user_id={user_id}: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Falha interna ao salvar configuração 2FA"
-            )
+    if not ok:
+        print(f"[MFA CONFIRM] Token inválido para user_id={user_id}")
+        return False
 
-    return ok
+    # 5) Se deu tudo certo, marca mfa.enabled = True no banco
+    try:
+        # seta mfa.enabled=True (mantém o secret)
+        await confirm_user_mfa(user["_id"])
+        print(f"[MFA CONFIRM] MFA habilitado para user_id={user_id}")
+    except Exception as e:
+        print(
+            f"[MFA CONFIRM] ERRO ao salvar no DB para user_id={user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Falha interna ao salvar configuração 2FA"
+        )
+
+    return True
 
 
 async def verify_login(email: str, token: str) -> Optional[dict]:
@@ -177,7 +201,7 @@ async def verify_login(email: str, token: str) -> Optional[dict]:
 
     payload = {
         "sub": str(user["_id"]),
-        "userId": str(user["_id"]), 
+        "userId": str(user["_id"]),
         "email": user.get("email"),
         "role": user.get("role", "user"),
         "mfa": True,
@@ -185,7 +209,8 @@ async def verify_login(email: str, token: str) -> Optional[dict]:
     token_jwt = _jwt_issue(payload)
 
     # remove campos sensíveis e torna o objeto seguro para JSON
-    safe_user = {k: v for k, v in user.items() if k not in {"password", "passwordHash", "mfa", "salt"}}
+    safe_user = {k: v for k, v in user.items() if k not in {
+        "password", "passwordHash", "mfa", "salt"}}
     safe_user = _jsonify(safe_user)
 
     return {"token": token_jwt, "user": safe_user}
