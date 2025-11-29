@@ -1,5 +1,10 @@
-/* ===== ESTILOS DA TELA DE LOGIN ===== */
+/* ============================================================
+   ESTILOS DA TELA DE LOGIN
+   - Mobile / tablet: mantém o fundo gradiente atual
+   - Desktop (web): usa imagem 4K dos silos como background
+   ============================================================ */
 
+/* Container principal da tela de login */
 .login-container {
     min-height: 100vh;
     display: flex;
@@ -7,22 +12,31 @@
     justify-content: center;
     align-items: center;
     padding: 20px;
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 50%, var(--secondary-color) 100%);
-    position: relative;
+
+    /* Fundo padrão (mobile-first): gradiente já usado no projeto */
+    background: linear-gradient(
+        135deg,
+        var(--primary-color) 0%,
+        var(--primary-light) 50%,
+        var(--secondary-color) 100%
+    );
+
+    position: relative; /* necessário para o pseudo-elemento de background */
     overflow: hidden;
 }
 
-
+/* Animação usada em alguns elementos decorativos (se necessário) */
 @keyframes float {
     0%, 100% { transform: translate(0, 0) rotate(0deg); }
     33% { transform: translate(30px, -30px) rotate(120deg); }
     66% { transform: translate(-20px, 20px) rotate(240deg); }
 }
 
+/* Header com logo + título */
 .login-header {
     text-align: center;
     margin-bottom: 40px;
-    z-index: 1;
+    z-index: 1;          /* garante que fique acima do background */
     position: relative;
 }
 
@@ -55,6 +69,7 @@
     text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+/* Cartões do formulário (login e cadastro) */
 .login-form-container,
 .register-form-container {
     background: rgba(255, 255, 255, 0.95);
@@ -64,11 +79,12 @@
     padding: 40px;
     width: 100%;
     max-width: 450px;
-    z-index: 1;
+    z-index: 1;          /* garante que fique acima do background */
     position: relative;
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Título dentro dos formulários */
 .login-form h2 {
     text-align: center;
     margin-bottom: 32px;
@@ -77,6 +93,7 @@
     font-weight: 600;
 }
 
+/* Grupo de campos */
 .form-group {
     position: relative;
     margin-bottom: 24px;
@@ -116,6 +133,7 @@
     font-size: 14px;
 }
 
+/* Ícone dentro dos campos */
 .form-icon {
     position: absolute;
     left: 12px;
@@ -127,11 +145,13 @@
     pointer-events: none; /* evita interferir no clique */
 }
 
+/* Ícone reage ao foco do campo */
 .form-group input:focus + .form-icon,
 .form-group select:focus + .form-icon {
     color: var(--primary-color);
 }
 
+/* Botão de alternar visibilidade da senha */
 .password-toggle {
     position: absolute;
     right: 16px;
@@ -151,10 +171,15 @@
     background: rgba(76, 175, 80, 0.1);
 }
 
+/* Botão principal de login/cadastro */
 .btn-login {
     width: 100%;
     padding: 16px;
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--primary-color) 0%,
+        var(--primary-light) 100%
+    );
     color: white;
     border: none;
     border-radius: var(--border-radius);
@@ -185,6 +210,7 @@
     transform: none;
 }
 
+/* Links abaixo dos formulários */
 .form-links {
     display: flex;
     justify-content: space-between;
@@ -210,6 +236,7 @@
     text-decoration: underline;
 }
 
+/* Mensagens de feedback (erro / sucesso / info) */
 .message-container {
     margin-top: 20px;
     padding: 0;
@@ -255,7 +282,7 @@
     border: 1px solid rgba(33, 150, 243, 0.3);
 }
 
-/* ===== MODAL DE GERENCIAMENTO DE USUÁRIOS ===== */
+/* ===== MODAL DE GERENCIAMENTO DE USUÁRIOS (mantido para compatibilidade) ===== */
 .users-list {
     max-height: 400px;
     overflow-y: auto;
@@ -323,7 +350,7 @@
     background: #D32F2F;
 }
 
-/* ===== VALIDAÇÃO DE FORMULÁRIO ===== */
+/* ===== ESTADOS DE VALIDAÇÃO DE FORMULÁRIO ===== */
 .form-group.error input,
 .form-group.error select {
     border-color: var(--error-color);
@@ -345,35 +372,75 @@
     gap: 4px;
 }
 
-/* ===== RESPONSIVIDADE ===== */
+/* ============================================================
+   FONDO COM IMAGEM 4K (APENAS EM WEB / DESKTOP)
+   ------------------------------------------------------------
+   - A partir de 992px: remove gradiente e usa a imagem
+   - Mantém o layout atual em tablets e celulares
+   ============================================================ */
+@media (min-width: 992px) {
+    .login-container {
+        /* Remove o gradiente definido acima */
+        background: none;
+    }
+
+    /* Pseudo-elemento para a imagem de fundo */
+    .login-container::before {
+        content: "";
+        position: absolute;
+        inset: 0; /* top/right/bottom/left: 0 */
+        background-image: url("../images/imagisilologin.png");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        z-index: 0; /* fica atrás de header e formulários */
+    }
+
+    /* Garante que header e formulários fiquem acima da imagem */
+    .login-header,
+    .login-form-container,
+    .register-form-container {
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Leve efeito de "glass" mais discreto para o card em cima da imagem */
+    .login-form-container,
+    .register-form-container {
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(6px);
+    }
+}
+
+/* ===== RESPONSIVIDADE (mantida do seu código original) ===== */
 @media (max-width: 768px) {
     .login-container {
         padding: 16px;
     }
-    
+
     .login-form-container,
     .register-form-container {
         padding: 24px;
         max-width: 100%;
     }
-    
+
     .logo h1 {
         font-size: 32px;
     }
-    
+
     .logo i {
         font-size: 36px;
     }
-    
+
     .subtitle {
         font-size: 16px;
     }
-    
+
     .login-form h2 {
         font-size: 24px;
         margin-bottom: 24px;
     }
-    
+
     .form-links {
         flex-direction: column;
         text-align: center;
@@ -384,33 +451,32 @@
     .login-header {
         margin-bottom: 24px;
     }
-    
+
     .logo {
         flex-direction: column;
         gap: 8px;
     }
-    
+
     .form-group input,
     .form-group select {
         padding: 14px 18px;
         padding-left: 48px;
         font-size: 16px; /* Evita zoom no iOS */
     }
-    
+
     .btn-login {
         padding: 14px;
         font-size: 15px;
     }
-    
+
     .user-item {
         flex-direction: column;
         align-items: flex-start;
         gap: 12px;
     }
-    
+
     .user-actions {
         width: 100%;
         justify-content: flex-end;
     }
 }
-
