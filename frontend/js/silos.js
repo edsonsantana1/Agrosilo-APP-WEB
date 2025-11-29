@@ -1,71 +1,99 @@
-// js/silos.js (PROD) — carrega os mesmos cards do Dashboard em tempo real
+// js/silos.js
+// Tela de Silos - Agrosilo
+//
+// Responsável por:
+// - Garantir autenticação
+// - Preencher header (usuário / menu / alertas)
+// - Carregar silos + summaries de sensores
+// - Renderizar cards dos silos
+// - Auto-refresh dos dados
+// - Abrir/fechar modal "Adicionar Silo"
+// - Criar silo + sensores via API
+// - Exibir notificações locais
 
-// ======= Estado / referências =======
-let silosData = [];               // lista de silos do usuário
-let latestSummaries = {};         // { [siloId]: { sensors: [{ _id, type, lastValue, lastTimestamp }] } }
-let refreshHandle = null;
+// ================= ESTADO GLOBAL =================
+let silosData = [];       // Lista de silos do usuário
+let latestSummaries = {}; // Map: { [siloId]: { sensors: [...] } }
+let refreshHandle = null; // Handler do setInterval
 
-// ======= Boot =======
+// ================= BOOT DA PÁGINA =================
 document.addEventListener('DOMContentLoaded', () => {
+  // Garante que o usuário está autenticado
   if (!requireAuth()) return;
+
+  // Header (nome, papel, menu, badge de alertas)
+  setupHeaderUI();
+
+  // Setup do modal + CRUD (submit do form, clique fora do modal)
+  setupCrudEventHandlers();
+
+  // Carga inicial dos dados
   initSilosPage();
 });
 
+// Inicialização principal da tela de Silos
 async function initSilosPage() {
   try {
-    setupHeaderUI();
-    await loadSilosAndSummaries();
-    renderSilosGrid();
-    setupAutoRefresh();
+    await loadSilosAndSummaries(); // Busca silos + últimos summaries dos sensores
+    renderSilosGrid();             // Desenha os cards de silo
+    setupAutoRefresh();            // Liga o loop de atualização automática
   } catch (err) {
     console.error('[silos] init erro:', err);
     showLoadError();
   }
 }
 
-// ======= UI Header =======
+// ================= HEADER / USUÁRIO / ALERTAS =================
+
+// Preenche informações de usuário e menu
 function setupHeaderUI() {
   const user = getCurrentUser?.() || {};
   setTextSafe('userName', user.name || 'Usuário');
   setTextSafe('userRole', user.role === 'admin' ? 'Administrador' : 'Usuário');
 
+  // Mostra menu de Usuários se for admin
   if (typeof isAdmin === 'function' && isAdmin()) {
     const um = document.getElementById('usersMenuItem');
     if (um) um.style.display = 'flex';
   }
 
-  // Atualiza o badge de alertas (opcional)
+  // Atualiza badge de alertas
   updateAlertBadge().catch(() => {});
 }
 
+// Atualiza badge de quantidade de alertas ativos
 async function updateAlertBadge() {
   try {
-    // Se tiver rota /api/alerts/active, usamos para o badge
     const resp = await authManager.makeRequest('/alerts/active');
     const items = Array.isArray(resp) ? resp : (resp?.alerts || []);
     const badge = document.getElementById('alertCount');
     if (badge) {
-      badge.textContent = items.length || 0;
-      badge.style.display = (items.length || 0) > 0 ? 'inline-block' : 'none';
+      const total = items.length || 0;
+      badge.textContent = total;
+      badge.style.display = total > 0 ? 'inline-block' : 'none';
     }
   } catch (_) {
     // silencioso
   }
 }
 
-// ======= Carregamento de dados =======
+// ================= CARGA DE DADOS (SILOS + SUMMARY) =================
+
+// Busca silos do usuário + summary de sensores de cada silo
 async function loadSilosAndSummaries() {
   // 1) Silos do usuário
   const res = await authManager.makeRequest('/silos');
   silosData = Array.isArray(res) ? res : (res?.silos || []);
   if (!Array.isArray(silosData)) silosData = [];
 
-  // 2) Summary de cada silo
+  // 2) Summary dos sensores por silo
   latestSummaries = {};
   for (const silo of silosData) {
     try {
-      const summary = await authManager.makeRequest(`/sensors/silo/${silo._id}/summary`);
-      // Formato esperado: { sensors: [{ _id, type, lastValue, lastTimestamp }, ...] }
+      const summary = await authManager.makeRequest(
+        `/sensors/silo/${silo._id}/summary`
+      );
+      // Esperado: { sensors: [{ _id, type, lastValue, lastTimestamp }, ...] }
       latestSummaries[silo._id] = summary || { sensors: [] };
     } catch (e) {
       console.warn('[silos] summary falhou p/ silo', silo._id, e);
@@ -74,11 +102,13 @@ async function loadSilosAndSummaries() {
   }
 }
 
-// ======= Render =======
+// ================= RENDERIZAÇÃO DA GRADE =================
+
 function renderSilosGrid() {
   const grid = document.getElementById('silosGrid');
   if (!grid) return;
 
+  // Nenhum silo cadastrado
   if (!silosData.length) {
     grid.innerHTML = `
       <div class="empty-state">
@@ -89,31 +119,44 @@ function renderSilosGrid() {
     return;
   }
 
+  // Renderizar cards
   grid.innerHTML = '';
   for (const silo of silosData) {
     const sensors = latestSummaries[silo._id]?.sensors || [];
 
     const readings = sensors.length
-      ? sensors.map(s => {
-          const valueNum = (s.lastValue != null && s.lastValue !== '') ? Number(s.lastValue) : null;
-          const valueTxt = valueNum != null && Number.isFinite(valueNum) ? valueNum.toFixed(1) : '--';
+      ? sensors
+          .map((s) => {
+            const valueNum =
+              s.lastValue != null && s.lastValue !== ''
+                ? Number(s.lastValue)
+                : null;
+            const valueTxt =
+              valueNum != null && Number.isFinite(valueNum)
+                ? valueNum.toFixed(1)
+                : '--';
 
-          const unit  = getUnitSafe(s.type);
-          const icon  = getIconSafe(s.type);
-          const level = getLevelSafe(s.type, s.lastValue); // normal | caution | warning | critical
+            const unit = getUnitSafe(s.type);
+            const icon = getIconSafe(s.type);
+            const level = getLevelSafe(s.type, s.lastValue);
 
-          return `
+            return `
             <div class="sensor-reading">
               <div class="sensor-info">
-                <div class="sensor-icon ${s.type}"><i class="${icon}"></i></div>
-                <span class="sensor-name">${getDisplayNameSafe(s.type)}</span>
+                <div class="sensor-icon ${s.type}">
+                  <i class="${icon}"></i>
+                </div>
+                <span class="sensor-name">
+                  ${getDisplayNameSafe(s.type)}
+                </span>
               </div>
               <div class="sensor-value">
                 <span class="value-number">${valueTxt}${unit}</span>
                 <div class="value-status ${level}"></div>
               </div>
             </div>`;
-        }).join('')
+          })
+          .join('')
       : '<div class="empty-state"><p>Nenhum sensor com leituras</p></div>';
 
     const card = document.createElement('div');
@@ -127,23 +170,36 @@ function renderSilosGrid() {
           </span>
         </div>
         <div class="silo-location">
-          <i class="fas fa-map-marker-alt"></i> ${silo.location || 'Localização não informada'}
+          <i class="fas fa-map-marker-alt"></i>
+          ${silo.location || 'Localização não informada'}
         </div>
       </div>
-      <div class="silo-sensors">${readings}</div>`;
+      <div class="silo-sensors">
+        ${readings}
+      </div>`;
+
     grid.appendChild(card);
   }
 }
 
-// ======= Auto-Refresh =======
+// ================= AUTO-REFRESH =================
+
 function setupAutoRefresh() {
-  const interval = (window.CHART_CONFIG && CHART_CONFIG.refreshInterval) || 15000;
+  const interval =
+    (window.CHART_CONFIG && CHART_CONFIG.refreshInterval) || 15000;
+
   if (refreshHandle) clearInterval(refreshHandle);
 
   refreshHandle = setInterval(async () => {
     try {
-      // (opcional) sincroniza ThingSpeak -> Mongo se tiver a rota
-      try { await authManager.makeRequest('/thingspeak/sync-all', { method: 'POST' }); } catch (_) {}
+      // (Opcional) sincroniza ThingSpeak -> Mongo
+      try {
+        await authManager.makeRequest('/thingspeak/sync-all', {
+          method: 'POST',
+        });
+      } catch (_) {
+        // se a rota não existir, ignoramos
+      }
 
       await loadSilosAndSummaries();
       renderSilosGrid();
@@ -158,30 +214,187 @@ window.addEventListener('beforeunload', () => {
   if (refreshHandle) clearInterval(refreshHandle);
 });
 
-// ======= Helpers (com fallback se Utils não existir) =======
-function getDisplayNameSafe(type) {
-  if (window.Utils?.getSensorDisplayName) return Utils.getSensorDisplayName(type);
-  return ({ temperature: 'Temperatura', humidity: 'Umidade', pressure: 'Pressão', co2: 'CO2' }[type]) || type;
+// ================= CRUD: MODAL + CRIAÇÃO DE SILO =================
+
+// Registra eventos do CRUD (submit do form + clique fora do modal)
+function setupCrudEventHandlers() {
+  const form = document.getElementById('addSiloForm');
+  if (form) {
+    form.addEventListener('submit', handleAddSilo);
+  }
+
+  // Fecha modal ao clicar fora do conteúdo
+  window.addEventListener('click', (ev) => {
+    const modal = document.getElementById('addSiloModal');
+    if (ev.target === modal) {
+      closeAddSiloModal();
+    }
+  });
 }
+
+// Handler de submit do formulário de novo silo
+async function handleAddSilo(event) {
+  event.preventDefault();
+
+  const fd = new FormData(event.target);
+
+  const siloData = {
+    name: fd.get('name'),
+    location: fd.get('location'),
+  };
+
+  const selectedSensors = Array.from(fd.getAll('sensors'));
+
+  if (!selectedSensors.length) {
+    showNotification('warning', 'Selecione pelo menos um tipo de sensor');
+    return;
+  }
+
+  try {
+    // 1. Cria o silo
+    const silo = await authManager.makeRequest('/silos', {
+      method: 'POST',
+      body: JSON.stringify(siloData),
+    });
+
+    // 2. Cria os sensores associados
+    for (const sensorType of selectedSensors) {
+      await authManager.makeRequest(`/sensors/${silo._id}`, {
+        method: 'POST',
+        body: JSON.stringify({ type: sensorType }),
+      });
+    }
+
+    // 3. Notifica sucesso (AGORA EXISTE showNotification AQUI)
+    showNotification('success', 'Silo adicionado com sucesso!');
+
+    // 4. FECHA O MODAL ANTES DE RECARREGAR
+    closeAddSiloModal();
+
+    // 5. Recarrega lista de silos (se alguma falhar, o modal já está fechado)
+    await loadSilosAndSummaries();
+    renderSilosGrid();
+    updateAlertBadge().catch(() => {});
+  } catch (error) {
+    console.error('Erro ao adicionar silo:', error);
+    showNotification('error', 'Erro ao adicionar silo');
+  }
+}
+
+// Abre o modal
+function showAddSiloModal() {
+  const m = document.getElementById('addSiloModal');
+  if (m) {
+    m.style.display = 'block';
+  }
+}
+
+// Fecha o modal e reseta o form
+function closeAddSiloModal() {
+  const m = document.getElementById('addSiloModal');
+  if (m) {
+    m.style.display = 'none';
+  }
+
+  const f = document.getElementById('addSiloForm');
+  if (f) {
+    f.reset();
+  }
+}
+
+// Disponibiliza funções para o HTML (onclick)
+window.showAddSiloModal = showAddSiloModal;
+window.closeAddSiloModal = closeAddSiloModal;
+
+// ================= NOTIFICAÇÕES LOCAIS =================
+
+// Versão simplificada do showNotification, igual conceito do dashboard
+function showNotification(type, message) {
+  const container = document.getElementById('notificationContainer');
+
+  // Se não tiver container, faz um fallback simples
+  if (!container) {
+    console.log(`[${type}] ${message}`);
+    return;
+  }
+
+  const el = document.createElement('div');
+  el.className = `notification ${type}`;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;">
+      <i class="${getNotificationIcon(type)}"></i>
+      <span>${message}</span>
+    </div>
+  `;
+
+  container.appendChild(el);
+
+  const duration =
+    (window.NOTIFICATION_CONFIG && NOTIFICATION_CONFIG.duration) || 3000;
+
+  setTimeout(() => {
+    el.remove();
+  }, duration);
+}
+
+function getNotificationIcon(type) {
+  return (
+    {
+      success: 'fas fa-check-circle',
+      error: 'fas fa-exclamation-circle',
+      warning: 'fas fa-exclamation-triangle',
+      info: 'fas fa-info-circle',
+    }[type] || 'fas fa-info-circle'
+  );
+}
+
+// ================= HELPERS GENÉRICOS =================
+
+function getDisplayNameSafe(type) {
+  if (window.Utils?.getSensorDisplayName)
+    return Utils.getSensorDisplayName(type);
+
+  const map = {
+    temperature: 'Temperatura',
+    humidity: 'Umidade',
+    pressure: 'Pressão',
+    co2: 'CO2',
+  };
+  return map[type] || type;
+}
+
 function getUnitSafe(type) {
   if (window.Utils?.getSensorUnit) return Utils.getSensorUnit(type);
-  return type === 'temperature' ? '°C'
-       : type === 'humidity'    ? '%'
-       : type === 'pressure'    ? 'hPa'
-       : type === 'co2'         ? 'ppm'
-       : '';
+
+  return type === 'temperature'
+    ? '°C'
+    : type === 'humidity'
+    ? '%'
+    : type === 'pressure'
+    ? 'hPa'
+    : type === 'co2'
+    ? 'ppm'
+    : '';
 }
+
 function getIconSafe(type) {
   if (window.Utils?.getSensorIcon) return Utils.getSensorIcon(type);
-  return type === 'temperature' ? 'fas fa-thermometer-half'
-       : type === 'humidity'    ? 'fas fa-tint'
-       : type === 'pressure'    ? 'fas fa-gauge-high'
-       : type === 'co2'         ? 'fas fa-smog'
-       : 'fas fa-circle';
+
+  return type === 'temperature'
+    ? 'fas fa-thermometer-half'
+    : type === 'humidity'
+    ? 'fas fa-tint'
+    : type === 'pressure'
+    ? 'fas fa-gauge-high'
+    : type === 'co2'
+    ? 'fas fa-smog'
+    : 'fas fa-circle';
 }
+
 function getLevelSafe(type, value) {
+  // Se existir lógica centralizada em Utils, usa ela
   if (window.Utils?.getAlertLevel) return Utils.getAlertLevel(type, value);
-  // fallback simples: sem Utils, não classifica
+  // Fallback simples: tudo normal
   return 'normal';
 }
 

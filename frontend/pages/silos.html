@@ -1,25 +1,28 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Silos - Agrosilo</title>
 
   <!-- Estilos (mesmos do dashboard) -->
-  <link rel="stylesheet" href="../css/style.css">
-  <link rel="stylesheet" href="../css/silos.css">
-  <link rel="stylesheet" href="../css/dashboard.css">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/silos.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    rel="stylesheet"
+  />
 </head>
 <body>
-  <!-- Header -->
+  <!-- ================= HEADER ================= -->
   <header class="header">
     <div class="header-content">
       <div class="logo">
         <i class="fas fa-warehouse"></i>
         <h1>Agrosilo</h1>
       </div>
-      
+
       <nav class="nav-menu">
         <a href="dashboard.html" class="nav-item">
           <i class="fas fa-tachometer-alt"></i> Dashboard
@@ -34,11 +37,16 @@
         <a href="silos.html" class="nav-item active">
           <i class="fas fa-warehouse"></i> Silos
         </a>
-        <a href="users.html" class="nav-item" id="usersMenuItem" style="display:none;">
+        <a
+          href="users.html"
+          class="nav-item"
+          id="usersMenuItem"
+          style="display: none;"
+        >
           <i class="fas fa-users"></i> Usuários
         </a>
       </nav>
-      
+
       <div class="header-actions">
         <div class="user-info">
           <span id="userName">Usuário</span>
@@ -51,23 +59,134 @@
     </div>
   </header>
 
-  <!-- Main Content -->
+  <!-- ============== MODAL: ADICIONAR SILO ============== -->
+  <div id="addSiloModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Adicionar Novo Silo</h3>
+        <span class="close" onclick="closeAddSiloModal()">&times;</span>
+      </div>
+
+      <div class="modal-body">
+        <!-- Formulário de cadastro de silo -->
+        <form id="addSiloForm">
+          <div class="form-group">
+            <label for="siloName">Nome do Silo</label>
+            <input
+              type="text"
+              id="siloName"
+              name="name"
+              required
+              placeholder="Ex: Silo A1"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="siloLocation">Localização</label>
+            <input
+              type="text"
+              id="siloLocation"
+              name="location"
+              placeholder="Ex: Galpão Norte"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Sensores</label>
+            <div class="sensors-config">
+              <div class="sensor-item">
+                <input
+                  type="checkbox"
+                  id="tempSensor"
+                  name="sensors"
+                  value="temperature"
+                />
+                <label for="tempSensor">
+                  <i class="fas fa-thermometer-half"></i>
+                  Temperatura
+                </label>
+              </div>
+              <div class="sensor-item">
+                <input
+                  type="checkbox"
+                  id="humSensor"
+                  name="sensors"
+                  value="humidity"
+                />
+                <label for="humSensor">
+                  <i class="fas fa-tint"></i>
+                  Umidade
+                </label>
+              </div>
+              <div class="sensor-item">
+                <input
+                  type="checkbox"
+                  id="presSensor"
+                  name="sensors"
+                  value="pressure"
+                />
+                <label for="presSensor">
+                  <i class="fas fa-gauge-high"></i>
+                  Pressão Atmosférica
+                </label>
+              </div>
+              <div class="sensor-item">
+                <input
+                  type="checkbox"
+                  id="co2Sensor"
+                  name="sensors"
+                  value="co2"
+                />
+                <label for="co2Sensor">
+                  <i class="fas fa-smog"></i>
+                  Gás CO2
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-outline"
+              onclick="closeAddSiloModal()"
+            >
+              Cancelar
+            </button>
+
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-plus"></i>
+              Adicionar Silo
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN CONTENT ================= -->
   <main class="main-content">
     <div class="container">
-      <!-- Silos Overview -->
       <div class="silos-overview">
         <div class="section-header">
           <h3>Visão Geral dos Silos</h3>
+          <button class="btn btn-primary" onclick="showAddSiloModal()">
+            <i class="fas fa-plus"></i>
+            Adicionar Silo
+          </button>
         </div>
-        
+
         <div class="silos-grid" id="silosGrid">
-          <!-- Silos serão carregados aqui dinamicamente -->
+          <!-- Silos carregados dinamicamente -->
         </div>
       </div>
     </div>
   </main>
 
-  <!-- Scripts -->
+  <!-- Container de notificações -->
+  <div id="notificationContainer" class="notification-container"></div>
+
+  <!-- ============== SCRIPTS ============== -->
   <script src="../js/config.js"></script>
   <script src="../js/auth.js"></script>
   <script src="../js/silos.js"></script>
