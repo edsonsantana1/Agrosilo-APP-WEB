@@ -67,9 +67,39 @@ app.use('/api/thresholds', auth, thresholdsRoutes);
 app.use('/api/policy', require('./routes/policy'));
 app.use('/api/dashboard', auth, dashboardRoutes);
 
-// ===== Proxy → FastAPI
+// ===== Proxy → FastAPI (análise + MFA)
 const FASTAPI_TARGET = process.env.FASTAPI_TARGET || 'http://127.0.0.1:8000';
 
+/**
+ * Cliente Axios dedicado para falar com o FastAPI.
+ * Timeout maior para aguentar o cold start do Render.
+ */
+const fastapiClient = axios.create({
+  baseURL: FASTAPI_TARGET,
+  timeout: 60000, // 60 segundos
+});
+
+/**
+ * Função para "acordar" o serviço FastAPI/MFA no Render.
+ * É chamada pela rota /api/auth/mfa/wake.
+ *
+ * No FastAPI, já existe a rota GET /health (vista no log de startup).
+ */
+async function wakeFastApiMfa() {
+  try {
+    console.log('[MFA] Tentando acordar FastAPI em', FASTAPI_TARGET);
+    await fastapiClient.get('/health');
+    console.log('[MFA] FastAPI acordado com sucesso');
+  } catch (err) {
+    console.error(
+      '[MFA] Erro ao acordar FastAPI (wakeFastApiMfa):',
+      err?.message || err
+    );
+    // Não lança erro pra não quebrar o fluxo de login.
+  }
+}
+
+// ===== Proxy para /api/analysis → FastAPI
 app.use(
   '/api/analysis',
   auth,
@@ -88,43 +118,62 @@ app.use(
     logLevel: 'warn',
     onError(err, req, res) {
       console.error('[analysis-proxy] error:', err?.message || err);
-      if (!res.headersSent) res.status(502).json({ error: 'Bad Gateway (analysis proxy)' });
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'Bad Gateway (analysis proxy)' });
+      }
     },
   })
 );
 
-// Rota de Proxy Manual para MFA (para evitar problemas de body-parsing com http-proxy-middleware)
+// ===== Rota de Proxy Manual para MFA
+// (para evitar problemas de body-parsing com http-proxy-middleware)
 app.post('/api/auth/mfa/:action', async (req, res) => {
   const { action } = req.params;
-  const targetUrl = `${FASTAPI_TARGET}/auth/mfa/${action}`;
+  const targetPath = `/auth/mfa/${action}`;
 
   try {
-    const response = await axios.post(targetUrl, req.body, {
+    const response = await fastapiClient.post(targetPath, req.body, {
       headers: {
         'Content-Type': req.headers['content-type'],
         'Authorization': req.headers['authorization'] || '',
         'x-forwarded-host': req.headers.host || '',
         'x-forwarded-proto': req.protocol || 'http',
       },
-      validateStatus: (status) => status >= 200 && status < 500, // Não lançar erro para 4xx
+      // Não lançar erro para 4xx, deixa a API responder normalmente
+      validateStatus: (status) => status >= 200 && status < 500,
     });
 
     res.status(response.status).send(response.data);
   } catch (error) {
     console.error('[mfa-proxy-axios] error:', error?.message || error);
+
     if (error.response) {
-      // O FastAPI respondeu com um erro (ex: 401 Unauthorized)
       res.status(error.response.status).send(error.response.data);
     } else if (error.code === 'ECONNREFUSED') {
-      // O FastAPI não está rodando
       res.status(503).json({ error: 'Service Unavailable (FastAPI is down)' });
+    } else if (error.code === 'ECONNABORTED') {
+      res.status(504).json({ error: 'Gateway Timeout (MFA cold start)' });
     } else {
-      // Outros erros de conexão (incluindo ECONNRESET)
       res.status(502).json({ error: 'Bad Gateway (mfa proxy axios)' });
     }
   }
 });
 
+/**
+ * Rota para "acordar" explicitamente o serviço de MFA/FastAPI.
+ * Chamado pelo frontend logo após o login cair em fluxo MFA.
+ */
+app.get('/api/auth/mfa/wake', async (req, res) => {
+  try {
+    await wakeFastApiMfa();
+    return res.json({ ok: true, message: 'MFA/FastAPI acordado' });
+  } catch (err) {
+    console.error('[MFA] Erro em /api/auth/mfa/wake:', err?.message || err);
+    return res.status(500).json({ ok: false, message: 'Falha ao acordar MFA' });
+  }
+});
+
+// Health do próprio gateway Node
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 const server = app.listen(PORT, () => {

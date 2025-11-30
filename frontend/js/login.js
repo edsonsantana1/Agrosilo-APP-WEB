@@ -199,6 +199,21 @@
     }
   }
 
+  // ========= NOVO: função para acordar o MFA/FastAPI em background =========
+  function wakeMfaInBackground() {
+    try {
+      // Dispara a rota /api/auth/mfa/wake no backend (Node),
+      // que por sua vez chama /health no FastAPI.
+      api('/auth/mfa/wake', { method: 'GET' })
+        .catch(err => {
+          console.warn('[MFA wake] falha ao acordar MFA:', err);
+        });
+      // Não usamos await de propósito: não bloqueia o fluxo do usuário.
+    } catch (e) {
+      console.warn('[MFA wake] erro síncrono:', e);
+    }
+  }
+
   // ========= Fluxo de Login/Register =========
   async function handleLogin(e) {
     e.preventDefault();
@@ -221,8 +236,12 @@
       });
 
       // --- Fluxos MFA vindos do backend Node ---
+
       // 1) Provisionamento (usuário NUNCA ativou 2FA)
       if (data.mfa === 'provision' && data.tempToken) {
+        // 🔔 Acorda MFA em background ANTES de mandar o usuário para a tela de provisionamento
+        wakeMfaInBackground();
+
         setToken(data.tempToken); // token curto para /api/auth/mfa/provision (FastAPI via proxy)
         window.location.href = 'pages/mfa.html?mode=provision';
         return;
@@ -230,6 +249,9 @@
 
       // 2) Verificação (usuário JÁ tem 2FA ativo)
       if (data.mfa === 'verify' && data.email) {
+        // 🔔 Acorda MFA em background ANTES da tela de verificação
+        wakeMfaInBackground();
+
         window.location.href = `pages/mfa.html?mode=verify&email=${encodeURIComponent(data.email)}`;
         return;
       }
