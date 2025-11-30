@@ -87,18 +87,41 @@ const fastapiClient = axios.create({
  * Usada por /api/auth/mfa/wake e também pelo retry do proxy MFA.
  */
 async function wakeFastApiMfa() {
-  try {
-    console.log('[MFA] Tentando acordar FastAPI em', FASTAPI_TARGET);
-    await fastapiClient.get('/health');
-    console.log('[MFA] FastAPI acordado com sucesso');
-  } catch (err) {
-    console.error(
-      '[MFA] Erro ao acordar FastAPI (wakeFastApiMfa):',
-      err?.message || err
-    );
-    // Não relança o erro para não quebrar o fluxo de login.
+  const maxAttempts = 10;   // até ~50 segundos no total
+  const delayMs     = 5000; // 5s entre as tentativas
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      console.log(`[MFA] Tentando acordar FastAPI (tentativa ${attempt}/${maxAttempts}) em`, FASTAPI_TARGET);
+      const resp = await fastapiClient.get('/health', {
+        validateStatus: () => true, // vamos inspecionar manualmente
+      });
+
+      if (resp.status >= 200 && resp.status < 300) {
+        console.log('[MFA] FastAPI acordado com sucesso');
+        return true;
+      }
+
+      console.warn(
+        `[MFA] /health respondeu status ${resp.status}. Aguardando para tentar de novo...`
+      );
+    } catch (err) {
+      console.warn(
+        `[MFA] Erro ao chamar /health (tentativa ${attempt}):`,
+        err?.message || err
+      );
+    }
+
+    // Espera antes da próxima tentativa (menos na última)
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
   }
+
+  console.error('[MFA] Não foi possível acordar o FastAPI dentro do tempo limite.');
+  return false;
 }
+
 
 // ----- Proxy para /api/analysis → FastAPI -----
 app.use(
