@@ -53,7 +53,7 @@ mongoose
     console.error('MongoDB connection error:', error);
   });
 
-// ===== Rotas Node
+// ===== Rotas Node (Core API)
 app.use('/api/iot', iotRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', auth, adminAuth, userRoutes);
@@ -67,7 +67,10 @@ app.use('/api/thresholds', auth, thresholdsRoutes);
 app.use('/api/policy', require('./routes/policy'));
 app.use('/api/dashboard', auth, dashboardRoutes);
 
-// ===== Proxy → FastAPI (análise + MFA)
+// ============================================================================
+// ===== Integração com FastAPI (análises + MFA)
+// ============================================================================
+
 const FASTAPI_TARGET = process.env.FASTAPI_TARGET || 'http://127.0.0.1:8000';
 
 /**
@@ -81,9 +84,7 @@ const fastapiClient = axios.create({
 
 /**
  * Função para "acordar" o serviço FastAPI/MFA no Render.
- * É chamada pela rota /api/auth/mfa/wake.
- *
- * No FastAPI, já existe a rota GET /health (vista no log de startup).
+ * Usada por /api/auth/mfa/wake e também pelo retry do proxy MFA.
  */
 async function wakeFastApiMfa() {
   try {
@@ -95,11 +96,11 @@ async function wakeFastApiMfa() {
       '[MFA] Erro ao acordar FastAPI (wakeFastApiMfa):',
       err?.message || err
     );
-    // Não lança erro pra não quebrar o fluxo de login.
+    // Não relança o erro para não quebrar o fluxo de login.
   }
 }
 
-// ===== Proxy para /api/analysis → FastAPI
+// ----- Proxy para /api/analysis → FastAPI -----
 app.use(
   '/api/analysis',
   auth,
@@ -125,10 +126,13 @@ app.use(
   })
 );
 
-// ===== Rota de Proxy Manual para MFA
-// (para evitar problemas de body-parsing com http-proxy-middleware)
-app.post('/api/auth/mfa/:action', async (req, res) => {
-  const { action } = req.params;
+/**
+ * Função auxiliar para fazer proxy das rotas MFA com retry.
+ * - Chama POST /auth/mfa/{action} no FastAPI.
+ * - Se der erro de conexão/timeout/5xx na primeira tentativa,
+ *   chama wakeFastApiMfa() e tenta UMA segunda vez.
+ */
+async function proxyMfaRequest(action, req, res, hasRetried = false) {
   const targetPath = `/auth/mfa/${action}`;
 
   try {
@@ -143,20 +147,55 @@ app.post('/api/auth/mfa/:action', async (req, res) => {
       validateStatus: (status) => status >= 200 && status < 500,
     });
 
-    res.status(response.status).send(response.data);
+    return res.status(response.status).send(response.data);
   } catch (error) {
-    console.error('[mfa-proxy-axios] error:', error?.message || error);
+    const status = error.response?.status;
+    const code = error.code;
 
-    if (error.response) {
-      res.status(error.response.status).send(error.response.data);
-    } else if (error.code === 'ECONNREFUSED') {
-      res.status(503).json({ error: 'Service Unavailable (FastAPI is down)' });
-    } else if (error.code === 'ECONNABORTED') {
-      res.status(504).json({ error: 'Gateway Timeout (MFA cold start)' });
-    } else {
-      res.status(502).json({ error: 'Bad Gateway (mfa proxy axios)' });
+    console.error('[mfa-proxy-axios] error:', {
+      message: error?.message,
+      code,
+      status,
+    });
+
+    // Condições em que vale a pena tentar acordar + re-tentar:
+    const shouldRetry =
+      !hasRetried &&
+      (
+        code === 'ECONNREFUSED' ||
+        code === 'ECONNRESET' ||
+        code === 'ECONNABORTED' || // timeout
+        !status ||                  // sem resposta HTTP
+        status >= 500               // 5xx do Render/FastAPI
+      );
+
+    if (shouldRetry) {
+      console.log('[MFA] Tentativa MFA falhou, acordando FastAPI e refazendo requisição...');
+      await wakeFastApiMfa();
+      return proxyMfaRequest(action, req, res, true);
     }
+
+    // Se chegou aqui, ou já tentamos retry, ou é erro 4xx permanente
+    if (error.response) {
+      return res.status(error.response.status).send(error.response.data);
+    }
+
+    if (code === 'ECONNREFUSED') {
+      return res.status(503).json({ error: 'Service Unavailable (FastAPI is down)' });
+    }
+
+    if (code === 'ECONNABORTED') {
+      return res.status(504).json({ error: 'Gateway Timeout (MFA cold start)' });
+    }
+
+    return res.status(502).json({ error: 'Bad Gateway (mfa proxy axios)' });
   }
+}
+
+// ----- Rota de Proxy Manual para MFA (usada pelo frontend) -----
+app.post('/api/auth/mfa/:action', (req, res) => {
+  const { action } = req.params;
+  proxyMfaRequest(action, req, res);
 });
 
 /**
@@ -173,7 +212,7 @@ app.get('/api/auth/mfa/wake', async (req, res) => {
   }
 });
 
-// Health do próprio gateway Node
+// ===== Health do próprio gateway Node
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 const server = app.listen(PORT, () => {
@@ -195,4 +234,7 @@ async function gracefulShutdown(signal) {
     }
   });
 }
-['SIGINT', 'SIGTERM'].forEach(sig => process.on(sig, () => gracefulShutdown(sig)));
+
+['SIGINT', 'SIGTERM'].forEach(sig =>
+  process.on(sig, () => gracefulShutdown(sig))
+);
