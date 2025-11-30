@@ -62,13 +62,15 @@
 
   // ---------- Boot ----------
   document.addEventListener("DOMContentLoaded", () => {
-    if (!requireAuth()) return;
-    setupUserInterface();
-    loadSilos();
-    wireUI();
-    showChartEmptyState(true);
-  });
+  if (!requireAuth()) return;
+  setupUserInterface();
+  loadSilos();
+  // loadAlertsCard();   // Análise não usa card de alertas 24h
+  wireUI();
+  showChartEmptyState(true);
+});
 
+  
   function setupUserInterface() {
     const user = getCurrentUser() || {};
     const nameEl = document.getElementById("userName");
@@ -141,6 +143,33 @@
       U.notify("error", "Erro ao carregar silos.");
     }
   }
+
+
+  // ======================== CARD DE ALERTAS 24H ========================
+
+  async function loadAlertsCard() {
+    try {
+      // Chama o backend FastAPI via proxy Node (authManager já usa /api)
+      const payload = await authManager.makeRequest("/analysis/alerts/24h");
+
+      if (!payload || payload.ok === false) {
+        console.warn("Resposta inválida para /analysis/alerts/24h:", payload);
+        return;
+      }
+
+      const totalEl = document.getElementById("alertTotal");
+      const attEl   = document.getElementById("alertAttention");
+      const criEl   = document.getElementById("alertCritical");
+
+      if (totalEl) totalEl.textContent = payload.total ?? 0;
+      if (attEl)   attEl.textContent   = payload.attention ?? 0;
+      if (criEl)   criEl.textContent   = payload.critical ?? 0;
+    } catch (err) {
+      console.error("Erro ao carregar card de alertas:", err);
+      U.notify("error", "Falha ao carregar indicadores de alerta das últimas 24h.");
+    }
+  }
+
 
   // ---------- Período ----------
   function getPeriodSelection() {
