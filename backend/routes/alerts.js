@@ -1,7 +1,12 @@
+// backend/routes/alerts.js
 const express = require("express");
 const router = express.Router();
 const { auth } = require("../middleware/auth");
-const { listAlerts, getActiveAlerts } = require("../services/alertService");
+const {
+  listAlerts,
+  getActiveAlerts,
+  getAlertsStats,
+} = require("../services/alertService");
 const Alert = require("../models/Alert");
 
 /**
@@ -36,10 +41,40 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
+// -------------------------------------------------------------------
+// GET /api/alerts/stats
+// Estatística de alertas (total, críticos, moderados) em uma janela.
+// Exemplo frontend: GET /alerts/stats?timeWindow=24h
+// -------------------------------------------------------------------
+router.get("/stats", auth, async (req, res) => {
+  try {
+    const { timeWindow = "24h", siloId, fromDate, toDate } = req.query;
+
+    const stats = await getAlertsStats({
+      userId: req.user._id,
+      siloId: siloId && siloId !== "all" ? siloId : undefined,
+      timeWindow,
+      from: fromDate ? new Date(fromDate) : undefined,
+      to: toDate ? new Date(toDate) : undefined,
+    });
+
+    return res.json({
+      success: true,
+      timeWindow,
+      stats,
+    });
+  } catch (error) {
+    console.error("[alerts] GET /stats error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erro ao obter estatísticas de alertas",
+    });
+  }
+});
+
 /**
  * GET /api/alerts/active
  * Alertas ATIVOS (calculados a partir do último reading de cada sensor).
- * Compatível com o dashboard (cards + badge).
  * Resposta: { success, alerts: [...] }
  */
 router.get("/active", auth, async (req, res) => {
