@@ -41,6 +41,10 @@
                     <i class="fas fa-users"></i>
                     Usuários
                 </a>
+                <a href="ia.html" class="nav-item">
+                    <i class="fas fa-robot"></i>
+                    IA
+                </a>
             </nav>
             
             <div class="header-actions">
@@ -61,11 +65,9 @@
         <div class="container">
             <!-- Page Header -->
             <div class="page-header">
-                <h2>Dashboard</h2>
-                <p>Visão geral em tempo real dos seus silos</p>
                 <div class="last-update">
                     <i class="fas fa-clock"></i>
-                    Última atualização: <span id="lastUpdate">--</span>
+                    <h3>Última atualização: <span id="lastUpdate">--</span><h3>
                 </div>
             </div>
 
@@ -93,9 +95,16 @@
                     </div>
                     <div class="status-info">
                         <h3>Alertas Ativos</h3>
+
+                        <!-- Total de alertas nas últimas 24h -->
                         <div class="status-value" id="activeAlerts">--</div>
+
+                        <!-- Texto de apoio + detalhamento por nível -->
                         <div class="status-trend" id="alertsTrend">
-                            <span>Últimas 24h</span>
+                            <span id="alertsLast24hText">Últimas 24h</span>
+                            <span id="alertsBreakdown" class="alerts-breakdown">
+                                Críticos: -- · Moderados: --
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -161,17 +170,8 @@
                 </div>
             </div>
 
-            <!-- Novos Gráficos (AGORA ACIMA da Visão Geral dos Silos) -->
+            <!-- Overview Chart (Temperatura, Umidade e Risco) -->
             <div class="new-charts-section">
-                <div class="chart-card full-width">
-                    <div class="chart-header">
-                        <h3>Recomendação Técnica – Evolução do Produto</h3>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="productEvolutionChart"></canvas>
-                    </div>
-                </div>
-
                 <div class="chart-card full-width">
                     <div class="chart-header">
                         <h3>Overview Chart (Temperatura, Umidade e Risco)</h3>
@@ -182,104 +182,11 @@
                 </div>
             </div>
 
-            <!-- Silos Overview (agora vem DEPOIS dos novos gráficos) -->
-            <div class="silos-overview">
-                <div class="section-header">
-                    <h3>Visão Geral dos Silos</h3>
-                    <button class="btn btn-primary" onclick="showAddSiloModal()">
-                        <i class="fas fa-plus"></i>
-                        Adicionar Silo
-                    </button>
-                </div>
-                
-                <div class="silos-grid" id="silosGrid">
-                    <!-- Silos serão carregados aqui dinamicamente -->
-                </div>
-            </div>
-
-            <!-- Alertas Recentes -->
-            <div class="recent-alerts">
-                <div class="section-header">
-                    <h3>Alertas Recentes</h3>
-                    <a href="alerts.html" class="btn btn-outline">
-                        Ver Todos
-                        <i class="fas fa-arrow-right"></i>
-                    </a>
-                </div>
-                
-                <div class="alerts-list" id="recentAlertsList">
-                    <!-- Alertas recentes serão carregados aqui -->
-                </div>
-            </div>
-
+            <!-- OBS: sessão "Visão Geral dos Silos" e "Alertas Recentes"
+                 foram removidas do dashboard.
+                 A gestão de silos fica apenas na página silos.html. -->
         </div>
     </main>
-
-    <!-- Modal: Adicionar Silo -->
-    <div id="addSiloModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Adicionar Novo Silo</h3>
-                <span class="close" onclick="closeAddSiloModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="addSiloForm">
-                    <div class="form-group">
-                        <label for="siloName">Nome do Silo</label>
-                        <input type="text" id="siloName" name="name" required placeholder="Ex: Silo A1">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="siloLocation">Localização</label>
-                        <input type="text" id="siloLocation" name="location" placeholder="Ex: Galpão Norte">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Sensores</label>
-                        <div class="sensors-config">
-                            <div class="sensor-item">
-                                <input type="checkbox" id="tempSensor" name="sensors" value="temperature">
-                                <label for="tempSensor">
-                                    <i class="fas fa-thermometer-half"></i>
-                                    Temperatura
-                                </label>
-                            </div>
-                            <div class="sensor-item">
-                                <input type="checkbox" id="humSensor" name="sensors" value="humidity">
-                                <label for="humSensor">
-                                    <i class="fas fa-tint"></i>
-                                    Umidade
-                                </label>
-                            </div>
-                            <div class="sensor-item">
-                                <input type="checkbox" id="presSensor" name="sensors" value="pressure">
-                                <label for="presSensor">
-                                    <i class="fas fa-gauge-high"></i>
-                                    Pressão Atmosférica
-                                </label>
-                            </div>
-                            <div class="sensor-item">
-                                <input type="checkbox" id="co2Sensor" name="sensors" value="co2">
-                                <label for="co2Sensor">
-                                    <i class="fas fa-smog"></i>
-                                    Gás CO2
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline" onclick="closeAddSiloModal()">
-                    Cancelar
-                </button>
-                <button type="submit" form="addSiloForm" class="btn btn-primary">
-                    <i class="fas fa-plus"></i>
-                    Adicionar Silo
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Notification Container -->
     <div id="notificationContainer" class="notification-container"></div>
