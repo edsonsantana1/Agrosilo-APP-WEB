@@ -37,8 +37,6 @@ from sklearn.metrics import mean_squared_error, r2_score
 # -------------------------------------------------------------------
 # Configurações MongoDB
 # -------------------------------------------------------------------
-# Agora NÃO temos mais valor default com usuário/senha.
-# Se MONGODB_URI não estiver definido, levantamos erro explícito.
 MONGO_URI = os.getenv("MONGODB_URI")
 if not MONGO_URI:
     raise RuntimeError(
@@ -55,6 +53,10 @@ READINGS_COLLECTION = "readings"  # coleção time-series com histórico complet
 # IDs/valores padrão (caso o endpoint não informe)
 DEFAULT_SILO_ID = "68c31c63ac369b0d1d2b27da"
 DEFAULT_SENSOR_TYPE = "temperature"  # padrão continua sendo temperatura
+
+# NOVO: janela máxima (em dias) usada para treinar a regressão.
+# Se quiser mudar sem alterar código, defina FORECAST_WINDOW_DAYS no .env
+FORECAST_WINDOW_DAYS = int(os.getenv("FORECAST_WINDOW_DAYS", "30"))  # 30 dias
 
 
 # -------------------------------------------------------------------
@@ -144,6 +146,33 @@ def load_temperature_series(
     pode receber outro sensor_type, como 'humidity'.
     """
     return load_series_from_readings(silo_id_str, sensor_type=sensor_type)
+
+
+# -------------------------------------------------------------------
+# 1.1) Helper: limitar a série a uma janela recente
+# -------------------------------------------------------------------
+def limit_dataframe_by_days(df: pd.DataFrame, days: int, min_points: int = 10) -> pd.DataFrame:
+    """
+    Limita o DataFrame aos últimos `days` dias.
+
+    - Se `days <= 0`, não faz nada (usa todo o período).
+    - Se após o corte ficarem poucos pontos (< min_points), volta para o df original.
+
+    Isso evita que a regressão fique "reta" por causa de meses de histórico
+    com variações que se anulam ao longo do tempo.
+    """
+    if df.empty or days <= 0:
+        return df
+
+    last_date = df["Date"].max()
+    cutoff = last_date - pd.Timedelta(days=days)
+    df_recent = df[df["Date"] >= cutoff].copy()
+
+    if len(df_recent) >= min_points:
+        return df_recent
+
+    # Muito pouco dado após o corte → melhor usar tudo
+    return df
 
 
 # -------------------------------------------------------------------
@@ -343,6 +372,7 @@ def run_full_forecast(
     Função principal (chamada pelo endpoint):
 
     - Carrega a série do tipo solicitado (temperature/humidity/...)
+    - Limita para uma janela recente (FORECAST_WINDOW_DAYS)
     - Treina modelo LinearRegression
     - Gera 24 previsões futuras
     - Calcula métricas e tendência
@@ -353,12 +383,20 @@ def run_full_forecast(
     # padroniza para minúsculas
     sensor_type = (sensor_type or DEFAULT_SENSOR_TYPE).lower()
 
-    # 1) Carrega série do tipo solicitado
+    # 1) Carrega série do tipo solicitado (toda)
     df_series = load_temperature_series(silo_id_str, sensor_type=sensor_type)
     if df_series.empty:
         return {
             "ok": False,
             "message": f"Nenhum dado de {sensor_type} encontrado para este silo.",
+        }
+
+    # 1.1) Limita para janela recente (ex.: últimos 30 dias)
+    df_series = limit_dataframe_by_days(df_series, FORECAST_WINDOW_DAYS)
+    if df_series.empty:
+        return {
+            "ok": False,
+            "message": f"Dados insuficientes para previsão de {sensor_type}.",
         }
 
     # 2) Treina modelo e gera previsões internas (teste)
