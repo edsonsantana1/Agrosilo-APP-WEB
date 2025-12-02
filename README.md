@@ -155,18 +155,18 @@ A solução utiliza dois ambientes independentes (`backend/.env` e `agrosilo-ts-
 #### 9.1 Backend (`backend/.env`)
 
 dotenv
-### ===== MongoDB =====
+#### ===== MongoDB =====
 MONGODB_URI=mongodb+srv://<usuario>:<senha>@host/Agrosilo
 MONGODB_DB=agrosilo
 
-### ===== ThingSpeak =====
+#### ===== ThingSpeak =====
 THINGSPEAK_CHANNEL_ID=111111
 THINGSPEAK_READ_API_KEY=XXXXXX
 TS_FIELD_TEMP=1
 TS_FIELD_HUM=2
 TS_FETCH_RESULTS=100
 
-### ===== Email =====
+#### ===== Email =====
 EMAIL_ENABLED=true
 EMAIL_USER=xxxx@gmail.com
 EMAIL_PASS=xxxx xxxx xxxx
@@ -174,10 +174,10 @@ EMAIL_INTERVAL_CRITICAL_MS=120000
 EMAIL_INTERVAL_WARNING_MS=300000
 EMAIL_INTERVAL_CAUTION_MS=1800000
 
-### ===== Notificador =====
+#### ===== Notificador =====
 ALERT_NOTIFIER_TICK_MS=60000
 
-### ===== Execução =====
+#### ===== Execução =====
 POLL_SECONDS=15
 API_PORT=8001
 API_HOST=0.0.0.0
@@ -185,21 +185,21 @@ API_HOST=0.0.0.0
 #### 9.2 ETL Pipeline (`agrosilo-ts-pipeline/.env`)
 
 dotenv
-### ===== Mongo =====
+#### ===== Mongo =====
 MONGODB_URI=mongodb+srv://<usuario>:<senha>@host
 MONGODB_DB=agrosilo
 
-### ===== ThingSpeak =====
+#### ===== ThingSpeak =====
 THINGSPEAK_URL=https://api.thingspeak.com/channels
 THINGSPEAK_CHANNEL_ID=111111
 THINGSPEAK_READ_KEY=XXXXXX
 THINGSPEAK_RESULTS=200
 
-### ===== Forecast =====
+#### ===== Forecast =====
 FORECAST_WINDOW_DAYS=14
 FORECAST_MODEL=scikit  # ou spark
 
-### ===== Execução =====
+#### ===== Execução =====
 API_HOST=0.0.0.0
 API_PORT=8000
 
