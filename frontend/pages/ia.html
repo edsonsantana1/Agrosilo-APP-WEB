@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Assistente de Voz IA – Agrosilo</title>
+
+  <!-- ESTILOS GLOBAIS DO PROJETO -->
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <!-- ESTILOS ESPECÍFICOS DA IA -->
+  <link rel="stylesheet" href="../css/ia.css" />
+
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+
+  <!-- jsPDF para gerar PDF do relatório diretamente no navegador -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+
+<body class="bg-app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-content">
+
+      <!-- Logo (igual às outras páginas) -->
+      <div class="logo">
+        <i class="fas fa-warehouse"></i>
+        <h1>Agrosilo</h1>
+      </div>
+
+      <!-- MENU SUPERIOR -->
+      <nav class="nav-menu">
+        <a href="./dashboard.html" class="nav-item">
+          <i class="fas fa-tachometer-alt"></i>
+          <span>Dashboard</span>
+        </a>
+
+        <a href="./alerts.html" class="nav-item">
+          <i class="fas fa-bell"></i>
+          <span>Alertas</span>
+          <span id="alertsBadge" class="nav-badge" style="display:none">0</span>
+        </a>
+
+        <a href="./analysis.html" class="nav-item">
+          <i class="fas fa-chart-line"></i>
+          <span>Análise</span>
+        </a>
+
+        <a href="./silos.html" class="nav-item">
+          <i class="fas fa-warehouse"></i>
+          <span>Silos</span>
+        </a>
+
+        <a href="./users.html" class="nav-item">
+          <i class="fas fa-users"></i>
+          <span>Usuários</span>
+        </a>
+
+        <!-- Item ATIVO da página IA -->
+        <a href="./ia.html" class="nav-item active">
+          <i class="fas fa-robot"></i>
+          <span>Assistente de Voz IA</span>
+        </a>
+      </nav>
+
+      <!-- Ações do usuário -->
+      <div class="header-actions">
+        <div class="user-info">
+          <span id="userName">Usuário</span>
+          <span id="userRole" class="user-role">Administrador</span>
+        </div>
+        <button class="btn btn-outline" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i> Sair
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- CONTEÚDO -->
+  <main class="main-content">
+    <div class="container ia-page">
+
+      <!-- CARD CENTRAL DA IARA -->
+      <div class="ia-card">
+
+        <!-- Título + subtítulo -->
+        <div class="ia-header">
+          <h1>Assistente de Voz IA</h1>
+          <p class="page-subtitle">
+            Use sua voz ou digite comandos para consultar status, métricas, alertas e relatórios técnicos dos silos.
+          </p>
+        </div>
+
+        <!-- CONTROLES DE VOZ (MIC + MUDO + PDF) -->
+        <div class="ia-voice-controls">
+          <!-- Botão principal: iniciar/encerrar escuta OU parar fala da Iara -->
+          <button id="micButton" class="mic-button" title="Falar com a Iara">
+            <i class="fas fa-microphone"></i>
+          </button>
+
+          <!-- Botão para silenciar a Iara (stop na fala) -->
+          <button id="muteButton" class="ia-mute-button" type="button" title="Silenciar Iara">
+            <i class="fas fa-volume-mute"></i>
+          </button>
+
+          <!-- Botão para baixar o PDF do último relatório técnico -->
+          <button
+            id="iaDownloadPdf"
+            class="btn btn-outline ia-download-button"
+            type="button"
+            style="margin-left: 12px; display:none;"
+            title="Baixar relatório técnico em PDF"
+          >
+            <i class="fas fa-file-pdf"></i>
+            Baixar PDF
+          </button>
+        </div>
+
+        <!-- STATUS DA INTERAÇÃO (FICA LOGO ABAIXO DO MIC) -->
+        <p id="statusText" class="ia-status-text">
+          Pronto. Clique no microfone ou digite um comando para falar com a Iara.
+        </p>
+
+        <!-- ENTRADA POR TEXTO (CAIXA + BOTÃO) -->
+        <div class="ia-text-input">
+          <label for="iaTextInput" class="ia-label">
+            Ou digite um comando para a Iara:
+          </label>
+
+          <textarea
+            id="iaTextInput"
+            rows="3"
+            class="ia-textarea"
+            placeholder='Ex.: "Iara, gere um relatório técnico do silo TESTE SILO."'
+          ></textarea>
+
+          <!-- Botão centralizado -->
+          <div class="ia-text-actions">
+            <button id="iaSendButton" class="btn btn-primary ia-send-button" type="button">
+              Enviar comando
+            </button>
+          </div>
+
+          <small class="ia-hint">
+            Dica: você pode usar <strong>Ctrl + Enter</strong> para enviar o comando.
+          </small>
+        </div>
+
+        <!-- EXEMPLOS DE COMANDOS (ABAIXO DA CAIXA DE TEXTO) -->
+        <div class="ia-examples">
+          <h2>Exemplos de comandos</h2>
+          <ul id="iaExamplesList"></ul>
+        </div>
+
+        <!-- RESPOSTA DA IARA (FALA RESUMIDA) -->
+        <div class="ia-response">
+          <p id="userCommandText" class="user-command" style="display:none;"></p>
+          <p id="iaResponseText" class="ia-response-text">
+            Olá! Eu sou a <strong>Iara</strong>. Experimente dizer ou digitar:
+            “Iara, qual a temperatura e umidade do silo TESTE SILO?”
+          </p>
+        </div>
+
+        <!-- BLOCO PARA MOSTRAR O RELATÓRIO TÉCNICO COMPLETO -->
+        <div class="ia-report-card">
+          <h2>Relatório técnico agronômico</h2>
+          <pre id="iaReportBox">
+Nenhum relatório gerado ainda. Peça, por exemplo:
+"Iara, gere um relatório técnico do silo TESTE SILO."
+          </pre>
+        </div>
+
+      </div> <!-- /ia-card -->
+
+    </div> <!-- /container -->
+  </main>
+
+  <!-- SCRIPTS -->
+  <script src="../js/config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/ia.js"></script>
+
+</body>
+</html>
