@@ -1,0 +1,301 @@
+/* ===================================================================
+   Variáveis de tema (cores, espaçamentos, etc.)
+   =================================================================== */
+:root {
+  --color-primary: #2d9c5c;
+  --color-primary-dark: #1b6d3e;
+  --color-background: #050b18;  /* fundo padrão (mobile / sem imagem) */
+  --color-card-bg: #ffffff;
+  --color-card-bg-glass: rgba(255, 255, 255, 0.92);
+  --color-border: #d0d7de;
+  --color-text-main: #111827;
+  --color-text-muted: #6b7280;
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.25);
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --transition-fast: 0.2s ease;
+}
+
+/* Reset básico para remover margens e padronizar fontes
+   (não é um reset completo, apenas o essencial aqui) */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  color: var(--color-text-main);
+}
+
+/* ===================================================================
+   Layout geral da página de autenticação
+   =================================================================== */
+
+/* 
+  auth-page:
+  - ocupa a altura inteira da janela
+  - centraliza o conteúdo
+  - em telas pequenas, usa apenas cor de fundo sólida
+*/
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background);
+}
+
+/* 
+  auth-wrapper:
+  - garante o espaçamento lateral em telas menores
+*/
+.auth-wrapper {
+  width: 100%;
+  max-width: 1200px; /* largura máxima da área de autenticação */
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 
+  auth-card:
+  - é o "cartão" com os formulários e cabeçalho
+*/
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: 24px 24px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ===================================================================
+   Cabeçalho / Logo
+   =================================================================== */
+
+.auth-header {
+  margin-bottom: 4px;
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-logo-icon {
+  font-size: 32px;
+}
+
+.auth-logo-text h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.auth-logo-text p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* ===================================================================
+   Abas (Login / Criar conta)
+   =================================================================== */
+
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  background: #f3f4f6;
+  padding: 4px;
+  border-radius: var(--radius-md);
+}
+
+.auth-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.auth-tab--active {
+  background: #ffffff;
+  color: var(--color-primary-dark);
+  transform: translateY(-1px);
+}
+
+/* ===================================================================
+   Formulários
+   =================================================================== */
+
+.auth-forms {
+  margin-top: 8px;
+}
+
+/* 
+  Por padrão as forms ficam escondidas,
+  e apenas a form com classe auth-form--active aparece.
+*/
+.auth-form {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form--active {
+  display: flex;
+}
+
+.auth-form-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+/* Campo de formulário padrão */
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.auth-field label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-field input {
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+/* Estado de foco do input com destaque acessível */
+.auth-field input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(45, 156, 92, 0.18);
+}
+
+/* Linha extra com lembrar-me + esqueci senha */
+.auth-extra {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.auth-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.auth-link {
+  font-size: 13px;
+  text-decoration: none;
+  color: var(--color-primary-dark);
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+/* Botão principal */
+.auth-button {
+  margin-top: 6px;
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--color-primary);
+  color: #ffffff;
+  transition: background var(--transition-fast), transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.auth-button:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(45, 156, 92, 0.3);
+}
+
+.auth-button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Rodapé */
+.auth-footer {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* ===================================================================
+   Comportamento em telas grandes (modo "web")
+   Aqui é onde aplicamos a imagem de fundo dos silos.
+   =================================================================== */
+
+@media (min-width: 992px) {
+  .auth-page {
+    /* Imagem de fundo apenas em telas grandes
+       - substitua o caminho abaixo pelo caminho real da imagem no seu projeto */
+    background-image: url("../img/agrosilo-silos-4k.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    /* 
+      Opcional: fallback de cor atrás da imagem
+      (caso a imagem demore a carregar)
+    */
+    background-color: var(--color-background);
+  }
+
+  .auth-wrapper {
+    justify-content: flex-end; /* empurra o card para a direita (efeito mais "moderno") */
+    padding-right: 48px;
+  }
+
+  .auth-card {
+    background: var(--color-card-bg-glass); /* leve efeito glass */
+    backdrop-filter: blur(6px);
+  }
+}
+
+/* ===================================================================
+   Ajustes extras para telas muito pequenas
+   =================================================================== */
+
+@media (max-width: 360px) {
+  .auth-card {
+    padding: 16px 14px 12px;
+  }
+
+  .auth-logo-text h1 {
+    font-size: 20px;
+  }
+}

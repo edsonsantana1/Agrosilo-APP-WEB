@@ -1,0 +1,290 @@
+/* Página da IA: centraliza o card no meio da tela */
+.ia-page {
+  min-height: calc(100vh - 80px); /* header ~80px */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 12px;
+}
+
+/* Card principal da Iara */
+.ia-card {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+  padding: 32px 32px 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Cabeçalho do card */
+.ia-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.ia-header h1 {
+  font-size: 1.9rem;
+  margin-bottom: 4px;
+}
+
+.ia-header .page-subtitle {
+  font-size: 0.95rem;
+  color: #6b7280;
+}
+
+/* Controles de voz (mic + mute) */
+.ia-voice-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+/* Botão do microfone (grande) */
+.mic-button {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #ffffff;
+  box-shadow: 0 12px 25px rgba(22, 163, 74, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+/* Animação de pulso quando a Iara está falando */
+@keyframes mic-pulse-speaking {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 12px 25px rgba(22, 163, 74, 0.35);
+  }
+  100% {
+    transform: scale(1.08);
+    box-shadow: 0 18px 32px rgba(22, 163, 74, 0.55);
+  }
+}
+
+/* Estado "speaking": Iara falando */
+.mic-button.speaking {
+  animation: mic-pulse-speaking 0.8s ease-in-out infinite alternate;
+}
+
+
+.mic-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(22, 163, 74, 0.45);
+}
+
+.mic-button:active {
+  transform: translateY(0);
+  box-shadow: 0 8px 18px rgba(22, 163, 74, 0.35);
+}
+
+/* Estado ouvindo (mic aceso) */
+.mic-button.listening {
+  box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.2);
+}
+
+/* Botão de mute (pequeno, apenas ícone) */
+.ia-mute-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ia-mute-button:hover {
+  background: #f3f4f6;
+  color: #111827;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+}
+
+/* Status da interação (logo abaixo do mic) */
+.ia-status-text {
+  text-align: center;
+  font-size: 0.95rem;
+  color: #4b5563;
+}
+
+/* Entrada de texto (label + textarea + botão) */
+.ia-text-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ia-label {
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.ia-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 70px;
+  max-height: 180px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ia-textarea:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+}
+
+/* Botão de envio centralizado */
+.ia-text-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.ia-send-button {
+  min-width: 180px;
+}
+
+/* Botão padrão já vem do style.css / dashboard.css; apenas reforçamos */
+.ia-send-button.btn.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Card de exemplos de comandos */
+.ia-examples {
+  margin-top: 8px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f9fafb;
+  border: 1px dashed #e5e7eb;
+}
+
+.ia-examples h2 {
+  font-size: 1rem;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+.ia-examples ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ia-examples li {
+  font-size: 0.9rem;
+  color: #4b5563;
+  padding: 6px 8px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+
+.ia-examples li + li {
+  margin-top: 4px;
+}
+
+.ia-examples li:hover {
+  background: #e5f9f0;
+}
+
+/* Card de resposta da Iara */
+.ia-response {
+  margin-top: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f3f4ff;
+  border: 1px solid #e5e7eb;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.user-command {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.ia-response-text {
+  white-space: pre-wrap;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .ia-card {
+    padding: 24px 18px 20px 18px;
+    border-radius: 18px;
+  }
+
+  .mic-button {
+    width: 80px;
+    height: 80px;
+    font-size: 30px;
+  }
+
+  .ia-header h1 {
+    font-size: 1.5rem;
+  }
+}
+
+/* pdf */
+
+.ia-report-card {
+  margin-top: 24px;
+  background: var(--surface-color);
+  border-radius: var(--border-radius-large);
+  box-shadow: var(--shadow-light);
+  padding: 16px 20px;
+}
+
+.ia-report-card h2 {
+  margin: 0 0 8px 0;
+  font-size: 1.05rem;
+}
+
+#iaReportBox {
+  margin: 0;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+
+@keyframes mic-pulse-speaking {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 12px 25px rgba(22, 163, 74, 0.35);
+  }
+  100% {
+    transform: scale(1.08);
+    box-shadow: 0 18px 32px rgba(22, 163, 74, 0.55);
+  }
+}
+
+.mic-button.speaking {
+  animation: mic-pulse-speaking 0.8s ease-in-out infinite alternate;
+}

@@ -149,6 +149,33 @@ app.use(
   })
 );
 
+// ===== Proxy → IA (FastAPI - IARA)
+app.use(
+  '/api/ia',
+  auth, // mesma proteção de auth das outras rotas do painel
+  createProxyMiddleware({
+    target: FASTAPI_TARGET,        // http://127.0.0.1:8000
+    changeOrigin: true,
+    pathRewrite: { '^/api': '' },  // /api/ia/query -> /ia/query
+    onProxyReq: (proxyReq, req) => {
+      const authHeader = req.headers['authorization'];
+      if (authHeader) proxyReq.setHeader('authorization', authHeader);
+
+      proxyReq.setHeader('x-forwarded-host', req.headers.host || '');
+      proxyReq.setHeader('x-forwarded-proto', req.protocol || 'http');
+    },
+    logLevel: 'warn',
+    onError(err, req, res) {
+      console.error('[ia-proxy] error:', err?.message || err);
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'Bad Gateway (ia proxy)' });
+      }
+    },
+  })
+);
+
+
+
 /**
  * Função auxiliar para fazer proxy das rotas MFA com retry.
  * - Chama POST /auth/mfa/{action} no FastAPI.
