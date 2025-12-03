@@ -1,179 +1,233 @@
-# 🚀 Agrosilo – Plataforma de Monitoramento de Silos Inteligentes
+## 🚀 Agrosilo – Sistema de Monitoramento Inteligente de Silos Agrícolas
 
-**Sistema de coleta, análise e monitoramento de temperatura e umidade em silos agrícolas.**
+**Projeto Integrador – Faculdade SENAC**
+**Equipe:** Edson Santana Alves, Juliana Reis, Nycole Jenifer, Patrícia Betânia, Ricardo Pereira
+**Data:** Dezembro/2025
 
-## Deploys
+## 1. 🎯 Objetivo do Sistema
+
+O Agrosilo é uma plataforma **IoT** (Internet das Coisas) desenvolvida para o monitoramento remoto de silos agrícolas. O sistema visa fornecer dados em tempo real e análises preditivas para a gestão da qualidade dos grãos, permitindo acompanhar:
+
+*   Temperatura interna
+*   Umidade relativa
+*   Tendências térmicas
+*   Histórico e análise temporal
+*   Alertas inteligentes
+*   Previsões futuras (modelo linear)
+
+O sistema utiliza sensores conectados a dispositivos **ESP32** que enviam dados automaticamente para a nuvem, onde são tratados, analisados e disponibilizados ao usuário.
+
+## 2. 🌐 Deploys do Sistema
 
 | Serviço | URL |
 | :--- | :--- |
 | **Frontend (Netlify)** | [https://agrosilo-monitoramento-de-silos.netlify.app/](https://agrosilo-monitoramento-de-silos.netlify.app/) |
+| **Pipeline ETL (FastAPI – Render)** | [https://agrosilo-ts-pipeline.onrender.com/docs](https://agrosilo-ts-pipeline.onrender.com/docs) |
 | **Repositório GitHub** | [https://github.com/edsonsantana1/Agrosilo-APP-WEB](https://github.com/edsonsantana1/Agrosilo-APP-WEB) |
-| **AgrosiloPepiline**   | [https://agrosilo-ts-pipeline.onrender.com/docs](https://agrosilo-ts-pipeline.onrender.com/docs) |
 
-## 📝 Visão Geral do Projeto
+## 3. 🧱 Arquitetura Geral do Sistema
 
-O Agrosilo é uma plataforma digital desenvolvida para produtores rurais monitorarem, em tempo real, as condições internas de seus silos — especialmente temperatura e umidade, fatores que determinam perdas, proliferação de fungos e variações na qualidade dos grãos.
+A solução é organizada em uma arquitetura distribuída composta por 4 camadas principais, seguindo um fluxo de dados sequencial e modular:
 
-O sistema integra os seguintes componentes:
+### Fluxo de Dados
 
-*   Dispositivo IoT (DHT11 + ESP32)
-*   ThingSpeak (coleta intermediária)
-*   FastAPI Pipeline (ETL e limpeza de dados)
-*   Node.js (backend principal + alertas + controle de usuários)
-*   React.js (frontend responsivo)
-*   MongoDB (time-series para armazenamento dos dados)
-*   Sistema MFA (2FA)
+*    A[ESP32 + DHT11 (Coleta Local)] --> B(ThingSpeak - Buffer IoT);
+*    B --> C(FastAPI - ETL + Predict);
+*    C --> D(MongoDB - Time-Series);
+*    D --> E(Backend Node.js - Auth, Alertas);
+*    E --> F(Frontend React);
 
-## 🧩 Arquitetura Completa do Sistema
+
+**Componentes do Fluxo:**
+
+*   **ESP32 + DHT11:** Camada de coleta de dados (sensores de temperatura e umidade).
+*   **ThingSpeak:** Plataforma intermediária de buffer IoT (utiliza protocolo MQTT).
+*   **FastAPI – ETL + Predict:** Serviço de processamento que realiza limpeza, normalização e *forecast* (previsão).
+*   **MongoDB (Time-Series):** Camada de persistência otimizada para dados sequenciais.
+*   **Backend Node.js:** Camada de API Gateway, responsável por autenticação (auth), MFA, alertas e exposição dos dados para o frontend.
+*   **Frontend React:** Interface de usuário.
+
+
+## 4. 🧩 Arquitetura Completa do Sistema
 
 A arquitetura do sistema segue um fluxo modular e sequencial:
 
-```
+
 IoT (ESP32/DHT11) → ThingSpeak → FastAPI (ThingSpeakClient)
                               → (FastAPI – ETL Pipeline - agrosilo-ts-pipeline) → (limpeza/normalização) + (cálculos estatísticos) + (agregações / degrau térmico)
                               → (MongoDB - Time‑series + índices)
                               → (Node.js Backend - autenticação, alertas, MFA, email)
 Frontend (React.js Frontend - Netlify)
-```
 
-## 🛠 Tecnologias Utilizadas
 
-### Frontend (React.js – Netlify)
+## 5. 🛠 Tecnologias Utilizadas
 
-*   Axios
-*   Recharts (gráficos)
-*   Styled Components
-*   Context API
-*   JWT Auth
-*   Dashboard Responsivo
+### 5.1 Frontend – React.js (Netlify)
 
-### Backend Node.js
+*   **React 18:** Framework principal.
+*   **Axios:** Para consumo da API.
+*   **Recharts:** Biblioteca para geração de gráficos analíticos.
+*   **Styled Components:** Utilizado para o *design system*.
+*   **React Router:** Para navegação.
+*   **Context API:** Para gestão global de estado.
+*   **JWT Authentication:** Para controle de sessão.
+*   **QR Code View:** Para MFA.
+*   **Layout:** Responsivo.
 
-*   Node.js 22
-*   Express
-*   Axios (proxy para FastAPI)
-*   JWT / Middleware de autenticação
-*   Nodemailer (envio de emails)
-*   Bcrypt (hash de senhas)
-*   Scheduler (notificações)
-*   MFA 2FA via TOTP (Google Authenticator)
+> **🏆 Responsável pela UI do Dashboard, telas de Análise, Alertas e Perfil.**
 
-### FastAPI – ETL Pipeline
+### 5.2 Backend Principal – Node.js (Render)
 
-*   FastAPI 0.115
-*   Motor (MongoDB client)
-*   Python Dotenv
-*   Pandas, NumPy
-*   PyOTP (2FA)
-*   QrCode PIL
-*   Relatórios: ReportLab
-*   Previsão: Scikit-Learn / PySpark
+*   **Node.js 22:** Ambiente de execução.
+*   **Express.js:** Framework web.
+*   **Axios:** Utilizado como *proxy* para o serviço ETL/Pipeline (FastAPI).
+*   **JWT + Bcrypt:** Para autenticação e *hash* de senhas.
+*   **Nodemailer:** Para envio de alertas por e-mail.
+*   **node-cron:** Para agendamento de coleta e alertas.
+*   **http-proxy-middleware:** Para o *proxy* de MFA.
+*   **PDFKit:** Para geração de relatórios PDF.
+*   **MongoDB/Mongoose:** Para ORM e conexão com o banco de dados.
 
-### Banco de Dados
+> **🏆 Camada que controla usuários, silos, sensores, leituras, alertas e relatórios.**
 
-*   MongoDB Atlas
-*   **Coleções:**
-    *   `readings` (Time-Series)
-    *   `alerts`
-    *   `users`
-    *   `grain_assessments`
-    *   `sensors`
-    *   `silos`
+### 5.3 Pipeline ETL – FastAPI (Python 3.10)
 
-## 📊 Gráficos Utilizados nas Telas
+*   **FastAPI 0.115:** Framework web de alta performance.
+*   **Motor:** Cliente assíncrono do MongoDB.
+*   **Pandas / NumPy:** Para manipulação e cálculo de dados.
+*   **Scikit-Learn / PySpark MLlib:** Para modelos de regressão linear e previsão.
+*   **Dotenv:** Para gestão de variáveis de ambiente.
+*   **ReportLab:** Para geração de relatórios.
+*   **PyOTP + QRCode:** Para MFA opcional.
 
-| Tela | Gráfico | Componentes/Detalhes |
+> **🏆 Responsável por limpeza, transformação e previsão estatística dos dados.**
+
+### 5.4 Banco de Dados – MongoDB Atlas
+
+| Coleção | Tipo | Finalidade |
 | :--- | :--- | :--- |
-| **Dashboard – Tela Inicial** | LineChart – Temperatura x Tempo | Tooltip, CartesianGrid, XAxis, YAxis, Legend |
-| | LineChart – Umidade x Tempo | |
-| **Análises Avançadas** | ScatterChart – Correlação T/U | |
-| | BarChart – Médias Mensais | |
-| | AreaChart – Perfil Sazonal | |
-| | LineChart (multiline) – Picos e variações | |
-| **Alertas** | Lista dinâmica com níveis | Normal, Atenção, Crítico. Cores por risco. Telas de detalhes. |
-| **Usuários / Login / MFA** | Telas responsivas | QR Code para MFA (Google Authenticator). Flow completo de registro → ativação → verificação. |
+| `readings` | Time-Series | Leituras de Temperatura e Umidade por sensor. |
+| `alerts` | Document | Alertas gerados pelo backend. |
+| `silos` | Document | Dados de cada silo cadastrado. |
+| `sensors` | Document | Configuração dos sensores. |
+| `users` | Document | Credenciais + MFA Setup. |
+| `grain_assessments` | Document | Análises adicionais. |
 
-## 🖼 Telas do Sistema
+## 6. 📊 Gráficos Utilizados no Frontend
 
-*   ✔ Login e Registro (com MFA)
-*   ✔ Dashboard Principal
-*   ✔ Análises
-*   ✔ Histórico por Silo
-*   ✔ Alertas
-*   ✔ Perfil do Usuário
+| Tela | Gráfico | Propósito |
+| :--- | :--- | :--- |
+| **Dashboard** | LineChart | Evolução de T° e Umidade em tempo real. |
+| **Análises Avançadas** | ScatterChart | Correlação entre variáveis. |
+| | BarChart | Média mensal (agregação temporal). |
+| | AreaChart | Perfil sazonal dos silos. |
+| | MultiLineChart | Picos térmicos e comportamento diário. |
+| **Alertas** | Lista dinâmica | Classificação por zona de risco. |
 
-> **Observação:** As telas Usuários, Análise e Alertas ainda não estão totalmente responsivas para mobile.
+## 7. 🔒 Segurança e MFA
 
-## 🧪 Funcionalidades Implementadas
+O sistema implementa um robusto esquema de segurança:
 
-*   ✔ Coleta automática via IoT
-*   ✔ ETL com tratamento de dados
-*   ✔ Previsão de comportamento térmico (FastAPI)
-*   ✔ Relatórios em PDF
-*   ✔ CSV export
-*   ✔ Notificações automáticas
-*   ✔ MFA via Google Authenticator
-*   ✔ Sistema de login + JWT
-*   ✔ Painel de tendências
-*   ✔ Alertas Inteligentes
+*   **Hash de senhas:** Utiliza **Bcrypt**.
+*   **Sessão Autenticada:** Gerenciada por **JWT** (JSON Web Tokens).
+*   **MFA (TOTP):** Implementado via **Google Authenticator**, com o backend expondo *endpoints* para registro/verificação e geração dinâmica de **QR Code**.
 
-## ⚙️ Variáveis de Ambiente (Exemplo)
+## 8. ⚙️ Instalação e Execução do Projeto
 
-Crie `backend/.env` e `agrosilo-ts-pipeline/.env` com:
-```
-# Mongo
-MONGODB_URI=mongodb+srv://usuario:senha@host/db?retryWrites=true&w=majority
+### 8.1 Requisitos
+
+*   **Node.js 18+**
+*   **Python 3.10+**
+*   **MongoDB Atlas** ou local
+
+### 8.2 Instalação e Execução por Componente
+
+| Componente | Diretório | Instalação | Execução |
+| :--- | :--- | :--- | :--- |
+| **Frontend** | `frontend` | `npm install` | `npm start` |
+| **Backend Node.js** | `backend` | `npm install` | `npm start` |
+| **ETL – FastAPI** | `agrosilo-ts-pipeline` | `pip install -r requirements.txt` | `python run.py` |
+
+### 9. Variáveis de Ambiente (.env)
+
+A solução utiliza dois ambientes independentes (`backend/.env` e `agrosilo-ts-pipeline/.env`).
+
+#### 9.1 Backend (`backend/.env`)
+
+dotenv
+#### ===== MongoDB =====
+MONGODB_URI=mongodb+srv://<usuario>:<senha>@host/Agrosilo
 MONGODB_DB=agrosilo
 
-# ThingSpeak
-THINGSPEAK_CHANNEL_ID=123456
-THINGSPEAK_READ_API_KEY=SEU_API_KEY
+#### ===== ThingSpeak =====
+THINGSPEAK_CHANNEL_ID=111111
+THINGSPEAK_READ_API_KEY=XXXXXX
 TS_FIELD_TEMP=1
 TS_FIELD_HUM=2
-# TS_FIELD_PRESS=3           # opcional
 TS_FETCH_RESULTS=100
 
-# Se usar Gmail (cota baixa; em produção prefira SendGrid/SES)
-# Gmail
+#### ===== Email =====
 EMAIL_ENABLED=true
-EMAIL_USER=agrosilo2025@gmail.com
-EMAIL_PASS=ydud ududu dudud ouid
-##EMAIL_MIN_INTERVAL_MS=120000     # 2 minutos
+EMAIL_USER=xxxx@gmail.com
+EMAIL_PASS=xxxx xxxx xxxx
+EMAIL_INTERVAL_CRITICAL_MS=120000
+EMAIL_INTERVAL_WARNING_MS=300000
+EMAIL_INTERVAL_CAUTION_MS=1800000
 
-# ===== Janelas por nível (e-mail) =====
-EMAIL_INTERVAL_CRITICAL_MS=120000      # 2 min
-EMAIL_INTERVAL_WARNING_MS=300000       # 5 min
-EMAIL_INTERVAL_CAUTION_MS=1800000      # 30 min
+#### ===== Notificador =====
+ALERT_NOTIFIER_TICK_MS=60000
 
-# ===== Notifier =====
-ALERT_NOTIFIER_TICK_MS=60000           # verifica a cada 1 min
-
-# Execução
+#### ===== Execução =====
 POLL_SECONDS=15
-SILO_ID=64f0...c9a          # ObjectId do silo no Mongo
+API_PORT=8001
+API_HOST=0.0.0.0
+
+#### 9.2 ETL Pipeline (`agrosilo-ts-pipeline/.env`)
+
+dotenv
+#### ===== Mongo =====
+MONGODB_URI=mongodb+srv://<usuario>:<senha>@host
+MONGODB_DB=agrosilo
+
+#### ===== ThingSpeak =====
+THINGSPEAK_URL=https://api.thingspeak.com/channels
+THINGSPEAK_CHANNEL_ID=111111
+THINGSPEAK_READ_KEY=XXXXXX
+THINGSPEAK_RESULTS=200
+
+#### ===== Forecast =====
+FORECAST_WINDOW_DAYS=14
+FORECAST_MODEL=scikit  # ou spark
+
+#### ===== Execução =====
 API_HOST=0.0.0.0
 API_PORT=8000
 
-## 🔧 Instalação e Execução (Desenvolvedores)
 
-| Serviço | Comandos |
-| 
-| **Frontend** | bash\cd frontend\npm install\npm start |
-| **Backend Node** | bash\cd backend\npm install\npm start |
-| **Pipeline FastAPI** | bash\cd agrosilo-ts-pipeline\ pip install -r requirements.txt\  python run.py |
+## 10. 🧪 Funcionalidades Técnicas Concluídas
 
-## 📚 Equipe
+*   ✔ IoT + coleta automática
+*   ✔ Pipeline ETL com limpeza/normalização
+*   ✔ Previsão térmica (modelo linear)
+*   ✔ Exportação em PDF e CSV
+*   ✔ CRUD completo de silos e sensores
+*   ✔ Autenticação + MFA
+*   ✔ Alertas automáticos (e-mail + níveis)
+*   ✔ Dashboard interativo
+*   ✔ Análises avançadas
+*   ✔ Arquitetura escalável
+*   ✔ Deploy CI/CD Render + Netlify
 
-**Projeto Intregador**
-**Grupo 2 – Agrosilo**
+## ⚙️ Variáveis de Ambiente (Exemplo)
 
-*   Edson
-*   Juliana
-*   Patricia
-*   Ricardo
-*   Nycole
+## 11. 🏁 Conclusão
 
-## 🏁 Conclusão
+O Agrosilo constitui uma solução completa para monitoramento inteligente de silos agrícolas, combinando IoT, ETL, análise de dados, previsões, segurança e interface moderna. A arquitetura modular permite expansão futura para:
 
-O Agrosilo é um sistema completo para monitoramento inteligente de silos, unindo IoT, análise de dados, previsões, alertas e uma interface amigável. A arquitetura modular permite evoluções rápidas e integrações com novos sensores e algoritmos.
+*   Monitoramento de CO₂
+*   Integração com modelos de machine learning mais avançados
+*   Suporte a novos tipos de sensores
+*   Previsões sazonais e térmicas mais robustas (Spark MLlib)
+
+O sistema está pronto para uso acadêmico, demonstração comercial e evolução para produção.
 
