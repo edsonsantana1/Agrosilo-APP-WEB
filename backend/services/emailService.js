@@ -12,13 +12,23 @@ const LOGO_CID = 'agrosilo_logo'; // Content ID para a logo
 
 // --- 1. FUNÇÃO DE CRIAÇÃO DO TRANSPORTE (Apenas Gmail) ---
 function buildTransport() {
-  // Configuração direta para o Gmail
+  // Leitura das variáveis de ambiente com fallbacks seguros para Gmail
+  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+  const port = parseInt(process.env.EMAIL_PORT || '465');
+  // Se for a porta 465, 'secure' deve ser true. Se for a 587 (STARTTLS), 'secure' deve ser false.
+  const secure = String(process.env.EMAIL_SECURE || 'true').toLowerCase() === 'true' && port === 465;
+
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: host,
+    port: port,
+    secure: secure,
     auth: {
-      user: process.env.EMAIL_USER,    // Seu e-mail (ex: alerta@gmail.com)
+      user: process.env.EMAIL_USER,    // Seu e-mail
       pass: process.env.EMAIL_PASS     // Sua App Password do Gmail
-    }
+    },
+    // Adiciona timeouts de conexão para mitigar erros de rede como ETIMEDOUT no Render
+    connectionTimeout: 30000, // 30 segundos para a conexão TCP
+    greetingTimeout: 5000,    // 5 segundos para a saudação SMTP
   });
 }
 

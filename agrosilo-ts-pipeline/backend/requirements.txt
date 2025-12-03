@@ -20,3 +20,4 @@ pandas
 matplotlib
 pyspark
 scikit-learn
+python-jose==3.3.0
