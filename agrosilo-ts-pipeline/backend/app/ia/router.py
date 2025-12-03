@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 """
-Router da assistente de voz IARA
+Router do assistente de voz Ícaro
 (Inteligência de Análise de Risco Agrícola).
 
 Endpoint principal:
     POST /ia/query  -> recebe um texto e responde com análise do silo.
 
-A IARA usa principalmente:
+O Ícaro usa principalmente:
 - grain_assessments: valores consolidados (temp, umidade, pressão, CO2, status);
 - alerts: alertas recentes do silo.
 
-Ela também pode usar Groq (LLM) para:
+Ele também pode usar Groq (LLM) para:
 - interpretar a intenção do comando (NLP mais inteligente);
 - reescrever o relatório técnico agronômico.
 """
@@ -38,14 +38,14 @@ from groq import Groq
 class IAQueryRequest(BaseModel):
     """
     Requisição enviada pelo front:
-    { "text": "Iara, qual a temperatura do silo Teste Silo?" }
+    { "text": "Ícaro, qual a temperatura do silo Teste Silo?" }
     """
     text: str = Field(..., min_length=3)
 
 
 class IAQueryResponse(BaseModel):
     """
-    Resposta da IARA:
+    Resposta do Ícaro:
     - reply: texto pronto para ser falado;
     - data: dados estruturados (métricas, alertas, relatório, etc).
     """
@@ -79,12 +79,12 @@ def _as_oid(v: str) -> Optional[ObjectId]:
         return None
 
 
-# ==================== Serviço principal da IARA ====================
+# ==================== Serviço principal do assistente ====================
 
 
 class AgrosiloAssistantService:
     """
-    Serviço da IARA.
+    Serviço do assistente de voz Ícaro.
 
     Responsabilidades:
     - identificar o silo mencionado na frase;
@@ -107,12 +107,12 @@ class AgrosiloAssistantService:
         api_key = os.getenv("GROQ_API_KEY")
         if api_key:
             self.groq_client = Groq(api_key=api_key)
-            print("[IARA/GROQ] Cliente Groq inicializado.")
+            print("[ICARO/GROQ] Cliente Groq inicializado.")
         else:
             self.groq_client = None
             print(
-                "[IARA/GROQ] GROQ_API_KEY não configurada. "
-                "IARA funciona apenas com regras fixas."
+                "[ICARO/GROQ] GROQ_API_KEY não configurada. "
+                "Ícaro funciona apenas com regras fixas."
             )
 
     # ---------- utilidades de tempo / serialização ----------
@@ -407,14 +407,14 @@ class AgrosiloAssistantService:
         silo_hint: Optional[str] = None
 
         if not self.groq_client:
-            print("[IARA/GROQ] Sem cliente configurado. Usando heurísticas simples.")
+            print("[ICARO/GROQ] Sem cliente configurado. Usando heurísticas simples.")
             return base_metrics, silo_hint, base_wants_report
 
         try:
-            print("[IARA/GROQ] Interpretando comando do usuário (intenção)...")
+            print("[ICARO/GROQ] Interpretando comando do usuário (intenção)...")
 
             system_prompt = (
-                "Você é a Iara, uma engenheira agrônoma digital especializada em armazenagem "
+                "Você é o Ícaro, um engenheiro agrônomo digital especializado em armazenagem "
                 "de grãos em silos. Seu papel é interpretar comandos em português e devolver "
                 "um JSON com a intenção de consulta.\n\n"
                 "Você SEMPRE deve responder APENAS um JSON válido, sem texto extra."
@@ -449,7 +449,7 @@ class AgrosiloAssistantService:
             )
 
             raw = (completion.choices[0].message.content or "").strip()
-            print("[IARA/GROQ] Resposta bruta de interpretação:", raw)
+            print("[ICARO/GROQ] Resposta bruta de interpretação:", raw)
 
             # Usa o parser robusto, que aguenta ```json ... ```
             parsed = self._parse_llm_json(raw)
@@ -471,7 +471,7 @@ class AgrosiloAssistantService:
                 silo_hint = silo_name_val.strip()
 
             print(
-                "[IARA/GROQ] Interpretação final:",
+                "[ICARO/GROQ] Interpretação final:",
                 merged_metrics,
                 silo_hint,
                 wants_report,
@@ -480,7 +480,7 @@ class AgrosiloAssistantService:
 
         except Exception as e:
             # Se der qualquer erro (JSON quebrado, etc.), loga e volta para o fallback
-            print("[IARA/GROQ] Erro ao interpretar comando:", repr(e))
+            print("[ICARO/GROQ] Erro ao interpretar comando:", repr(e))
             return base_metrics, None, base_wants_report
 
     # ----------------- chamada ao Groq (LLM) para relatório -----------------
@@ -495,13 +495,13 @@ class AgrosiloAssistantService:
         Se não houver cliente ou der erro, retorna None.
         """
         if not self.groq_client:
-            print("[IARA/GROQ] Cliente Groq indisponível. Usando relatório base.")
+            print("[ICARO/GROQ] Cliente Groq indisponível. Usando relatório base.")
             return None
 
         try:
-            print("[IARA/GROQ] Gerando relatório técnico com LLaMA 3.3...")
+            print("[ICARO/GROQ] Gerando relatório técnico com LLaMA 3.3...")
             prompt_system = (
-                "Você é uma engenheira agrônoma chamada Iara, especialista em armazenagem "
+                "Você é um engenheiro agrônomo chamado Ícaro, especialista em armazenagem "
                 "e conservação de grãos em silos. Você escreve relatórios técnicos em "
                 "português do Brasil, com linguagem clara, objetiva e profissional."
             )
@@ -526,11 +526,11 @@ class AgrosiloAssistantService:
             )
 
             llm_text = completion.choices[0].message.content
-            print("[IARA/GROQ] Relatório gerado com sucesso.")
+            print("[ICARO/GROQ] Relatório gerado com sucesso.")
             return llm_text
 
         except Exception as e:
-            print("[IARA/GROQ] Erro ao chamar Groq:", repr(e))
+            print("[ICARO/GROQ] Erro ao chamar Groq:", repr(e))
             return None
 
     # ----------------- fluxo principal -----------------
@@ -552,8 +552,8 @@ class AgrosiloAssistantService:
         if not silo_doc:
             return IAQueryResponse(
                 reply=(
-                    "Oi, eu sou a IARA. Não consegui identificar qual silo você citou. "
-                    "Tente dizer, por exemplo: 'Iara, qual a temperatura e umidade do silo TESTE SILO?'."
+                    "Oi, eu sou o Ícaro. Não consegui identificar qual silo você citou. "
+                    "Tente dizer, por exemplo: 'Ícaro, qual a temperatura e umidade do silo TESTE SILO?'."
                 ),
                 data={},
             )
@@ -566,7 +566,7 @@ class AgrosiloAssistantService:
         if not assess:
             return IAQueryResponse(
                 reply=(
-                    f"Oi, eu sou a IARA. Ainda não encontrei avaliações consolidadas "
+                    f"Oi, eu sou o Ícaro. Ainda não encontrei avaliações consolidadas "
                     f"para o {silo_name}."
                 ),
                 data={"silo_id": silo_id, "silo_name": silo_name},
@@ -644,7 +644,7 @@ class AgrosiloAssistantService:
         rec_text = self._build_recommendations(assess, alerts_last_hour)
         parts.append(rec_text)
 
-        # Frase “normal” que a IARA fala (reply de voz/texto)
+        # Frase “normal” que o Ícaro fala (reply de voz/texto)
         reply = " ".join(parts)
 
         # --------- Relatório técnico base (regra fixa) ---------
@@ -722,16 +722,16 @@ class AgrosiloAssistantService:
             "recommendations": rec_text,
             "report_text": final_report_text,
             "examples": [
-                "Iara, qual a temperatura e umidade do silo TESTE SILO?",
-                "Iara, quais alertas na última hora do silo TESTE SILO?",
-                "Iara, qual o status geral do silo TESTE SILO?",
-                "Iara, gere um relatório técnico do silo TESTE SILO.",
+                "Ícaro, qual a temperatura e umidade do silo TESTE SILO?",
+                "Ícaro, quais alertas na última hora do silo TESTE SILO?",
+                "Ícaro, qual o status geral do silo TESTE SILO?",
+                "Ícaro, gere um relatório técnico do silo TESTE SILO.",
             ],
         }
 
         safe_data = self._normalize_for_response(data)
 
-        # Se pediu relatório, a IARA lê o relatório completo
+        # Se pediu relatório, o Ícaro lê o relatório completo
         if wants_report:
             reply = final_report_text
 
@@ -754,10 +754,10 @@ async def query_ia(
     service: AgrosiloAssistantService = Depends(get_service),
 ) -> IAQueryResponse:
     """
-    Endpoint principal da IARA.
+    Endpoint principal do assistente de voz Ícaro.
 
     Recebe um texto (payload.text) e devolve:
-    - reply: texto para ser falado pela voz da Iara;
+    - reply: texto para ser falado pela voz do Ícaro;
     - data: estrutura com métricas, alertas e relatório técnico.
     """
     return await service.handle_query(payload.text)

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Assistente de Voz IA – Agrosilo</title>
+  <title>Assistente de Voz Ícaro – Agrosilo</title>
 
   <!-- ESTILOS GLOBAIS DO PROJETO -->
   <link rel="stylesheet" href="../css/style.css" />
@@ -56,9 +56,11 @@
           <i class="fas fa-users"></i>
           <span>Usuários</span>
         </a>
+
         <!-- Item ATIVO da página IA -->
-        <a href="ia.html" class="nav-item">
-          <i class="fas fa-robot"></i> IA
+        <a href="./ia.html" class="nav-item active">
+          <i class="fas fa-robot"></i>
+          <span>Assistente de Voz IA</span>
         </a>
       </nav>
 
@@ -80,12 +82,12 @@
   <main class="main-content">
     <div class="container ia-page">
 
-      <!-- CARD CENTRAL DA IARA -->
+      <!-- CARD CENTRAL DO ÍCARO -->
       <div class="ia-card">
 
         <!-- Título + subtítulo -->
         <div class="ia-header">
-          <h1>Assistente de Voz IA</h1>
+          <h1>Assistente de Voz Ícaro</h1>
           <p class="page-subtitle">
             Use sua voz ou digite comandos para consultar status, métricas, alertas e relatórios técnicos dos silos.
           </p>
@@ -93,13 +95,13 @@
 
         <!-- CONTROLES DE VOZ (MIC + MUDO + PDF) -->
         <div class="ia-voice-controls">
-          <!-- Botão principal: iniciar/encerrar escuta OU parar fala da Iara -->
-          <button id="micButton" class="mic-button" title="Falar com a Iara">
+          <!-- Botão principal: iniciar/encerrar escuta OU parar fala do Ícaro -->
+          <button id="micButton" class="mic-button" title="Falar com o Ícaro">
             <i class="fas fa-microphone"></i>
           </button>
 
-          <!-- Botão para silenciar a Iara (stop na fala) -->
-          <button id="muteButton" class="ia-mute-button" type="button" title="Silenciar Iara">
+          <!-- Botão para silenciar o Ícaro (stop na fala) -->
+          <button id="muteButton" class="ia-mute-button" type="button" title="Silenciar Ícaro">
             <i class="fas fa-volume-mute"></i>
           </button>
 
@@ -118,20 +120,20 @@
 
         <!-- STATUS DA INTERAÇÃO (FICA LOGO ABAIXO DO MIC) -->
         <p id="statusText" class="ia-status-text">
-          Pronto. Clique no microfone ou digite um comando para falar com a Iara.
+          Pronto. Clique no microfone ou digite um comando para falar com o Ícaro.
         </p>
 
         <!-- ENTRADA POR TEXTO (CAIXA + BOTÃO) -->
         <div class="ia-text-input">
           <label for="iaTextInput" class="ia-label">
-            Ou digite um comando para a Iara:
+            Ou digite um comando para o Ícaro:
           </label>
 
           <textarea
             id="iaTextInput"
             rows="3"
             class="ia-textarea"
-            placeholder='Ex.: "Iara, gere um relatório técnico do silo TESTE SILO."'
+            placeholder='Ex.: "Ícaro, gere um relatório técnico do silo TESTE SILO."'
           ></textarea>
 
           <!-- Botão centralizado -->
@@ -152,12 +154,12 @@
           <ul id="iaExamplesList"></ul>
         </div>
 
-        <!-- RESPOSTA DA IARA (FALA RESUMIDA) -->
+        <!-- RESPOSTA DO ÍCARO (FALA RESUMIDA) -->
         <div class="ia-response">
           <p id="userCommandText" class="user-command" style="display:none;"></p>
           <p id="iaResponseText" class="ia-response-text">
-            Olá! Eu sou a <strong>Iara</strong>. Experimente dizer ou digitar:
-            “Iara, qual a temperatura e umidade do silo TESTE SILO?”
+            Olá! Eu sou o <strong>Ícaro</strong>. Experimente dizer ou digitar:
+            “Ícaro, qual a temperatura e umidade do silo TESTE SILO?”
           </p>
         </div>
 
@@ -166,7 +168,7 @@
           <h2>Relatório técnico agronômico</h2>
           <pre id="iaReportBox">
 Nenhum relatório gerado ainda. Peça, por exemplo:
-"Iara, gere um relatório técnico do silo TESTE SILO."
+"Ícaro, gere um relatório técnico do silo TESTE SILO."
           </pre>
         </div>
 

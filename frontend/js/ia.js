@@ -2,12 +2,12 @@
 
 // Indica se o microfone está ouvindo o usuário (STT ligado)
 let isListening = false;
-// Indica se a Iara está falando (TTS em andamento)
+// Indica se o Ícaro está falando (TTS em andamento)
 let isSpeaking  = false;
 // Utterance atual do speechSynthesis
 let currentUtterance = null;
 
-// Último payload estruturado retornado pela API da Iara.
+// Último payload estruturado retornado pela API do Ícaro.
 // Usamos para exibir o relatório em tela e gerar o PDF.
 let lastIaData = null;
 
@@ -28,7 +28,7 @@ const reportBox   = document.getElementById('iaReportBox');
 // Botão para baixar o PDF do relatório
 const downloadBtn = document.getElementById('iaDownloadPdf');
 
-// URL DIRETA da rota da IARA no FastAPI (pipeline)
+// URL DIRETA da rota da IA no FastAPI (pipeline)
 const FASTAPI_IA_URL =
   window.FASTAPI_IA_URL || 'http://127.0.0.1:8000/ia/query';
 
@@ -36,15 +36,15 @@ const FASTAPI_IA_URL =
 let recognition = null;
 let hasSpeechRecognition = false;
 
-// Voz da Iara (TTS)
-let iaraVoice = null;
+// Voz do Ícaro (TTS)
+let icaroVoice = null;
 
 // Exemplos de comandos exibidos na tela
-const IARA_EXAMPLES = [
-  'Iara, qual a temperatura e umidade do silo TESTE SILO?',
-  'Iara, me fale os alertas da última hora do silo TESTE SILO.',
-  'Iara, qual o status geral do silo TESTE SILO?',
-  'Iara, gere um relatório técnico do silo TESTE SILO.',
+const ICARO_EXAMPLES = [
+  'Ícaro, qual a temperatura e umidade do silo TESTE SILO?',
+  'Ícaro, me fale os alertas da última hora do silo TESTE SILO.',
+  'Ícaro, qual o status geral do silo TESTE SILO?',
+  'Ícaro, gere um relatório técnico do silo TESTE SILO.',
 ];
 
 // -------------- INICIALIZAÇÃO DA PÁGINA --------------
@@ -52,12 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Garante que o usuário está logado; se não estiver, redireciona
   if (!requireAuth()) return;
 
-  setupHeaderUI();        // Nome e papel do usuário no header
+  setupHeaderUI();         // Nome e papel do usuário no header
   initSpeechRecognition(); // Configura reconhecimento de fala
-  initIaraVoice();        // Seleciona voz da Iara
-  renderExamples();       // Lista de exemplos
+  initIcaroVoice();        // Seleciona voz do Ícaro
+  renderExamples();        // Lista de exemplos
 
-  // Mic: inicia/para escuta OU interrompe fala da Iara
+  // Mic: inicia/para escuta OU interrompe fala do Ícaro
   if (micButton) {
     micButton.addEventListener('click', toggleListeningOrStopSpeaking);
   }
@@ -65,8 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Botão de "mudo": cancela qualquer fala em andamento
   if (muteButton) {
     muteButton.addEventListener('click', () => {
-      stopIaraVoice();
-      statusText.textContent = 'Voz da Iara silenciada.';
+      stopIcaroVoice();
+      statusText.textContent = 'Voz do Ícaro silenciada.';
     });
   }
 
@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   statusText.textContent =
-    'Pronto. Clique no microfone ou digite um comando para falar com a Iara.';
+    'Pronto. Clique no microfone ou digite um comando para falar com o Ícaro.';
 });
 
 // -------------- HEADER (NOME DO USUÁRIO) --------------
@@ -119,7 +119,7 @@ function renderExamples() {
   if (!examplesList) return;
 
   examplesList.innerHTML = '';
-  IARA_EXAMPLES.forEach((ex) => {
+  ICARO_EXAMPLES.forEach((ex) => {
     const li = document.createElement('li');
     li.textContent = ex;
     examplesList.appendChild(li);
@@ -175,46 +175,46 @@ function initSpeechRecognition() {
   console.log('SpeechRecognition inicializado com sucesso.');
 }
 
-// -------------- CONFIGURAÇÃO TTS (VOZ DA IARA) --------------
+// -------------- CONFIGURAÇÃO TTS (VOZ DO ÍCARO) --------------
 
-function initIaraVoice() {
+function initIcaroVoice() {
   if (!('speechSynthesis' in window)) {
     console.warn('speechSynthesis não suportado.');
     return;
   }
 
-  function selectIaraVoice() {
+  function selectIcaroVoice() {
     const voices = window.speechSynthesis.getVoices();
     if (!voices || voices.length === 0) return;
 
-    // Preferência: vozes pt-BR (normalmente femininas)
+    // Preferência: vozes pt-BR (normalmente femininas/masculinas em pt-BR)
     const ptVoices = voices.filter(
       (v) => v.lang && v.lang.toLowerCase().startsWith('pt-br')
     );
 
-    iaraVoice = ptVoices[0] || voices[0] || null;
+    icaroVoice = ptVoices[0] || voices[0] || null;
 
-    if (iaraVoice) {
-      console.log('Voz da Iara selecionada:', iaraVoice.name, iaraVoice.lang);
+    if (icaroVoice) {
+      console.log('Voz do Ícaro selecionada:', icaroVoice.name, icaroVoice.lang);
     }
   }
 
-  window.speechSynthesis.onvoiceschanged = selectIaraVoice;
-  selectIaraVoice();
+  window.speechSynthesis.onvoiceschanged = selectIcaroVoice;
+  selectIcaroVoice();
 }
 
 // -------------- FALLBACK STT (PROMPT) ----------------
 
 function fallbackPromptSTT() {
   const command = prompt(
-    'Fale seu comando (ex: "Iara, qual a temperatura e umidade do silo Teste Silo?"):'
+    'Fale seu comando (ex: "Ícaro, qual a temperatura e umidade do silo TESTE SILO?"):'
   );
   return command;
 }
 
 // -------------- CONTROLE DE FALA (TTS) ----------------
 
-function stopIaraVoice() {
+function stopIcaroVoice() {
   // Se o navegador não suportar speechSynthesis, não faz nada
   if (!('speechSynthesis' in window)) return;
 
@@ -230,19 +230,19 @@ function stopIaraVoice() {
 }
 
 function simulateTTS(text) {
-  console.log('Iara diz:', text);
+  console.log('Ícaro diz:', text);
   iaResponseText.textContent = text;
 
   if (!('speechSynthesis' in window)) return;
 
   // Se já estiver falando algo, cancela antes da nova fala
-  stopIaraVoice();
+  stopIcaroVoice();
 
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'pt-BR';
 
-  if (iaraVoice) {
-    utterance.voice = iaraVoice;
+  if (icaroVoice) {
+    utterance.voice = icaroVoice;
   }
 
   // Ajuste leve de tom e velocidade
@@ -251,7 +251,7 @@ function simulateTTS(text) {
 
   utterance.onstart = () => {
     isSpeaking = true;
-    statusText.textContent = 'Iara está falando...';
+    statusText.textContent = 'Ícaro está falando...';
 
     if (micButton) {
       micButton.classList.add('speaking');
@@ -279,14 +279,14 @@ function simulateTTS(text) {
 // ------------------ LÓGICA PRINCIPAL ------------------
 
 // Mic agora faz duas coisas:
-// - Se Iara está falando -> para a fala.
+// - Se Ícaro está falando -> para a fala.
 // - Se não está falando -> alterna escuta (start/stop mic).
 async function toggleListeningOrStopSpeaking() {
-  // 1) Se Iara estiver falando, este clique serve como STOP da fala
+  // 1) Se Ícaro estiver falando, este clique serve como STOP da fala
   if (isSpeaking) {
-    stopIaraVoice();
+    stopIcaroVoice();
     statusText.textContent =
-      'Fala interrompida. Clique novamente para falar com a Iara.';
+      'Fala interrompida. Clique novamente para falar com o Ícaro.';
     return;
   }
 
@@ -331,9 +331,9 @@ async function processRecognizedCommand(command) {
 }
 
 /**
- * Envia o comando em texto para a IARA diretamente no FastAPI.
+ * Envia o comando em texto para o backend FastAPI (rota /ia/query).
  * Atualiza:
- *  - fala da Iara (reply)
+ *  - fala do Ícaro (reply)
  *  - bloco de relatório em tela
  *  - estado para geração de PDF
  */
@@ -352,11 +352,11 @@ async function sendCommandToIA(command) {
     }
 
     const data = await response.json();
-    console.log('Resposta estruturada da IARA:', data);
+    console.log('Resposta estruturada do Ícaro:', data);
 
-    statusText.textContent = 'Resposta da Iara:';
+    statusText.textContent = 'Resposta do Ícaro:';
 
-    const replyText = data.reply || 'Não recebi uma resposta da Iara.';
+    const replyText = data.reply || 'Não recebi uma resposta do Ícaro.';
     simulateTTS(replyText);
 
     // -------- Atualiza dados estruturados (relatório, métricas, etc.) --------
@@ -376,7 +376,7 @@ async function sendCommandToIA(command) {
       if (reportBox) {
         reportBox.textContent =
           'Nenhum relatório técnico retornado para este comando.\n' +
-          'Peça, por exemplo: "Iara, gere um relatório técnico do silo TESTE SILO."';
+          'Peça, por exemplo: "Ícaro, gere um relatório técnico do silo TESTE SILO."';
       }
       if (downloadBtn) {
         downloadBtn.style.display = 'none';
@@ -403,7 +403,7 @@ async function sendCommandToIA(command) {
  *  - Título: "Relatório Técnico de Alertas – Agrosilo"
  *  - Nível: Todos
  *  - Silo, Período (última hora), Gerado em e Total de alertas
- *  - Corpo: texto completo de report_text retornado pela Iara
+ *  - Corpo: texto completo de report_text retornado pelo Ícaro
  */
 function downloadIaReportPdf() {
   if (!lastIaData || !lastIaData.report_text) {
@@ -471,7 +471,7 @@ function downloadIaReportPdf() {
   doc.text(`Total de alertas (última hora): ${totalAlerts}`, marginLeft, y);
   y += lineHeight * 2;
 
-  // Corpo do relatório técnico (texto vindo da Iara – report_text)
+  // Corpo do relatório técnico (texto vindo do Ícaro – report_text)
   const bodyLines = doc.splitTextToSize(lastIaData.report_text, maxWidth);
   doc.text(bodyLines, marginLeft, y);
 
