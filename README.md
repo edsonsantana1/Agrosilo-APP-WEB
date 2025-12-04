@@ -203,52 +203,52 @@ A solução utiliza dois ambientes independentes (`backend/.env` e `agrosilo-ts-
 
 dotenv
 #### ===== MongoDB =====
-MONGODB_URI=mongodb+srv://<usuario>:<senha>@host/Agrosilo
-MONGODB_DB=agrosilo
+#### MONGODB_URI=mongodb+srv://<usuario>:<senha>@host/Agrosilo
+#### MONGODB_DB=agrosilo
 
 #### ===== ThingSpeak =====
-THINGSPEAK_CHANNEL_ID=111111
-THINGSPEAK_READ_API_KEY=XXXXXX
-TS_FIELD_TEMP=1
-TS_FIELD_HUM=2
-TS_FETCH_RESULTS=100
+#### THINGSPEAK_CHANNEL_ID=111111
+#### THINGSPEAK_READ_API_KEY=XXXXXX
+#### TS_FIELD_TEMP=1
+#### TS_FIELD_HUM=2
+#### TS_FETCH_RESULTS=100
 
 #### ===== Email =====
-EMAIL_ENABLED=true
-EMAIL_USER=xxxx@gmail.com
-EMAIL_PASS=xxxx xxxx xxxx
-EMAIL_INTERVAL_CRITICAL_MS=120000
-EMAIL_INTERVAL_WARNING_MS=300000
-EMAIL_INTERVAL_CAUTION_MS=1800000
+#### EMAIL_ENABLED=true
+#### EMAIL_USER=xxxx@gmail.com
+#### EMAIL_PASS=xxxx xxxx xxxx
+#### EMAIL_INTERVAL_CRITICAL_MS=120000
+#### EMAIL_INTERVAL_WARNING_MS=300000
+#### EMAIL_INTERVAL_CAUTION_MS=1800000
 
 #### ===== Notificador =====
-ALERT_NOTIFIER_TICK_MS=60000
+#### ALERT_NOTIFIER_TICK_MS=60000
 
 #### ===== Execução =====
-POLL_SECONDS=15
-API_PORT=8001
-API_HOST=0.0.0.0
+#### POLL_SECONDS=15
+#### API_PORT=8001
+#### API_HOST=0.0.0.0
 
 #### 9.2 ETL Pipeline (`agrosilo-ts-pipeline/.env`)
 
 dotenv
 #### ===== Mongo =====
-MONGODB_URI=mongodb+srv://<usuario>:<senha>@host
-MONGODB_DB=agrosilo
+## MONGODB_URI=mongodb+srv://<usuario>:<senha>@host
+## MONGODB_DB=agrosilo
 
 #### ===== ThingSpeak =====
-THINGSPEAK_URL=https://api.thingspeak.com/channels
-THINGSPEAK_CHANNEL_ID=111111
-THINGSPEAK_READ_KEY=XXXXXX
-THINGSPEAK_RESULTS=200
+#### THINGSPEAK_URL=https://api.thingspeak.com/channels
+#### THINGSPEAK_CHANNEL_ID=111111
+#### THINGSPEAK_READ_KEY=XXXXXX
+#### THINGSPEAK_RESULTS=200
 
 #### ===== Forecast =====
-FORECAST_WINDOW_DAYS=14
-FORECAST_MODEL=scikit  # ou spark
+#### FORECAST_WINDOW_DAYS=14
+#### FORECAST_MODEL=scikit  # ou spark
 
 #### ===== Execução =====
-API_HOST=0.0.0.0
-API_PORT=8000
+#### API_HOST=0.0.0.0
+#### API_PORT=8000
 
 
 ## 10. 🧪 Funcionalidades Técnicas Concluídas
