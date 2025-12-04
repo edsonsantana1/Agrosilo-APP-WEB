@@ -1,9 +1,9 @@
-# agrosilo-ts-pipeline/backend/app/services.py 
 from datetime import datetime, timezone
 from typing import List, Tuple, Optional
 from bson import ObjectId
 from .domain import IReadingRepository, ISensorRepository, Reading
 import os
+
 
 def _env_float(key: str, default: float) -> float:
     """
@@ -14,6 +14,7 @@ def _env_float(key: str, default: float) -> float:
         return float(os.getenv(key, str(default)))
     except:
         return default
+
 
 class IngestService:
     """
@@ -147,10 +148,31 @@ class IngestService:
             # Retorno estruturado mesmo sem dados (contrato consistente para o chamador).
             return {"type": sensor_type, "received": 0, "stored": 0, "dropped": 0, "last": None}
 
-        # Parse de todos os feeds e filtro por faixa física (higienização).
-        parsed = [self._parse(f, field) for f in feeds]
-        parsed = [(ts, val) for ts, val in parsed if ts and self._in_range(val, lo, hi)]
-        parsed.sort(key=lambda x: x[0])  # ordenação temporal ascendente
+        # Parse de todos os feeds (pode gerar None) e filtro por faixa física (higienização).
+        parsed_raw = [self._parse(f, field) for f in feeds]
+
+        # Filtra Nones e só então desempacota (ts, val).
+        parsed: List[Tuple[datetime, float]] = []
+        for item in parsed_raw:
+            if not item:
+                # _parse retornou None → feed inválido/inesperado → ignorar
+                continue
+            ts, val = item
+            if ts and self._in_range(val, lo, hi):
+                parsed.append((ts, val))
+
+        # Se depois da higienização não sobrou nada, ainda assim devolve resumo estruturado.
+        if not parsed:
+            return {
+                "type": sensor_type,
+                "received": len(feeds),
+                "stored": 0,
+                "dropped": len(feeds),
+                "last": None,
+            }
+
+        # Ordenação temporal ascendente
+        parsed.sort(key=lambda x: x[0])
 
         cleaned: List[Reading] = []
         dropped = 0
@@ -201,7 +223,7 @@ class IngestService:
             except Exception as e:
                 # Fallback seguro: desativa pressão sem interromper a pipeline.
                 print(f"[PRESSURE] desativado: {e}")
-                p = {"type":"pressure","received":0,"stored":0,"dropped":0,"last":None}
+                p = {"type": "pressure", "received": 0, "stored": 0, "dropped": 0, "last": None}
 
         # ===== Assessment =====
         # Coleta último valor de cada tipo para consolidar visão atual do silo.
@@ -241,11 +263,15 @@ class IngestService:
 
         # Regras explicativas (anotações operacionais) conforme desvios.
         if hum is not None:
-            if hum >= self.h_crit_min: assessment_doc["notes"].append("Umidade crítica: iniciar aeração intensiva e/ou secagem.")
-            elif hum > self.h_adm_max: assessment_doc["notes"].append("Umidade acima do ideal: aeração moderada a intensiva.")
+            if hum >= self.h_crit_min:
+                assessment_doc["notes"].append("Umidade crítica: iniciar aeração intensiva e/ou secagem.")
+            elif hum > self.h_adm_max:
+                assessment_doc["notes"].append("Umidade acima do ideal: aeração moderada a intensiva.")
         if temp is not None:
-            if temp > self.t_vhigh:  assessment_doc["notes"].append("Temperatura muito alta (>40°C): risco severo de fungos.")
-            elif temp > self.t_crit: assessment_doc["notes"].append("Temperatura alta (>30°C): risco de fungos/insetos.")
+            if temp > self.t_vhigh:
+                assessment_doc["notes"].append("Temperatura muito alta (>40°C): risco severo de fungos.")
+            elif temp > self.t_crit:
+                assessment_doc["notes"].append("Temperatura alta (>30°C): risco de fungos/insetos.")
 
         # Persistência do assessment (upsert por (silo, ts)); tolera falha sem quebrar o fluxo.
         if self.assessments:
@@ -258,6 +284,6 @@ class IngestService:
         return {
             "temperature": t,
             "humidity": h,
-            "pressure": p if p else {"type":"pressure","received":0,"stored":0,"dropped":0,"last":None},
+            "pressure": p if p else {"type": "pressure", "received": 0, "stored": 0, "dropped": 0, "last": None},
             "assessment": assessment_doc
         }

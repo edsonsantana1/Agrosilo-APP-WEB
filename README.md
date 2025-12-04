@@ -27,15 +27,15 @@ O sistema utiliza sensores conectados a dispositivos **ESP32** que enviam dados 
 
 ## 3. 🧱 Arquitetura Geral do Sistema
 
-A solução é organizada em uma arquitetura distribuída composta por 4 camadas principais, seguindo um fluxo de dados sequencial e modular:
+A solução é organizada em uma arquitetura distribuída composta por módulos independentes, com dois fluxos de dados principais: o Fluxo de Monitoramento IoT e o Fluxo de Interação IA.
 
 ### Fluxo de Dados
 
 *    A[ESP32 + DHT11 (Coleta Local)] --> B(ThingSpeak - Buffer IoT);
 *    B --> C(FastAPI - ETL + Predict);
-*    C --> D(MongoDB - Time-Series);
+*    C(FastAPI) <--> D(MongoDB - Time-Series) (Consulta de dados);
 *    D --> E(Backend Node.js - Auth, Alertas);
-*    E --> F(Frontend React);
+*    E --> F(Frontend - STT/TTS) <--> C(FastAPI - ETL + Predict - /ia/query);
 
 
 **Componentes do Fluxo:**
@@ -45,34 +45,43 @@ A solução é organizada em uma arquitetura distribuída composta por 4 camadas
 *   **FastAPI – ETL + Predict:** Serviço de processamento que realiza limpeza, normalização e *forecast* (previsão).
 *   **MongoDB (Time-Series):** Camada de persistência otimizada para dados sequenciais.
 *   **Backend Node.js:** Camada de API Gateway, responsável por autenticação (auth), MFA, alertas e exposição dos dados para o frontend.
-*   **Frontend React:** Interface de usuário.
+*   **Frontend (HTML/CSS/JS):** Interface de usuário, incluindo as funcionalidades de Reconhecimento de Fala (STT) e Síntese de Fala (TTS) para o Ícaro.
 
 
 ## 4. 🧩 Arquitetura Completa do Sistema
 
-A arquitetura do sistema segue um fluxo modular e sequencial:
+*    A arquitetura do sistema segue um fluxo modular e sequencial:
 
-
-IoT (ESP32/DHT11) → ThingSpeak → FastAPI (ThingSpeakClient)
-                              → (FastAPI – ETL Pipeline - agrosilo-ts-pipeline) → (limpeza/normalização) + (cálculos estatísticos) + (agregações / degrau térmico)
-                              → (MongoDB - Time‑series + índices)
-                              → (Node.js Backend - autenticação, alertas, MFA, email)
-Frontend (React.js Frontend - Netlify)
-
+*   Fluxo de Monitoramento
+*            A[IoT (ESP32/DHT11)] --> B(ThingSpeak);
+*            B --> C(FastAPI - ETL Pipeline);
+*            C --> D(MongoDB - Time-series + índices);
+*           D --> E(Node.js Backend);
+*            E --> F(Frontend);
+*    Fluxo de Interação IA (Ícaro)
+*            F --> G(FastAPI - /ia/query);
+*            G --> D;
+*            D --> G;
+*            G --> F;
+*    FastAPI - ETL
+*            C --> C1(limpeza/normalização);
+*            C --> C2(cálculos estatísticos);
+*            C --> C3(agregações / degrau térmico);
+*            C --> C4(Previsão - Modelo Linear);
 
 ## 5. 🛠 Tecnologias Utilizadas
 
-### 5.1 Frontend – React.js (Netlify)
+### 5.1 Frontend – HTML, CSS e JavaScript (Netlify)
 
-*   **React 18:** Framework principal.
-*   **Axios:** Para consumo da API.
-*   **Recharts:** Biblioteca para geração de gráficos analíticos.
-*   **Styled Components:** Utilizado para o *design system*.
-*   **React Router:** Para navegação.
-*   **Context API:** Para gestão global de estado.
-*   **JWT Authentication:** Para controle de sessão.
-*   **QR Code View:** Para MFA.
-*   **Layout:** Responsivo.
+O Frontend é construído com tecnologias web padrão (Vanilla), garantindo leveza e alta compatibilidade.
+
+*   **HTML5 e CSS3:** Estrutura e estilização da interface.
+*   **JavaScript (ES6+):** Lógica de interação e manipulação do DOM.
+*   **Axios:** Biblioteca para consumo assíncrono da API (Backend Node.js e Pipeline ETL).
+*   **Recharts:** Biblioteca para geração de gráficos analíticos e visualização de dados.
+*   **JWT Authentication:** Gerenciamento de sessão e controle de acesso.
+*   **QR Code View:** Implementação de visualização para o Multi-Factor Authentication (MFA).
+*   **Layout:** Design responsivo para acesso em diferentes dispositivos.
 
 > **🏆 Responsável pela UI do Dashboard, telas de Análise, Alertas e Perfil.**
 
@@ -112,6 +121,44 @@ Frontend (React.js Frontend - Netlify)
 | `sensors` | Document | Configuração dos sensores. |
 | `users` | Document | Credenciais + MFA Setup. |
 | `grain_assessments` | Document | Análises adicionais. |
+
+
+## 🤖 Assistente de Voz IA – Ícaro
+
+O **Ícaro** é o assistente de voz integrado ao Frontend, projetado para fornecer informações e relatórios sobre os silos de forma interativa e natural.
+
+### 5.5 Funcionamento e Tecnologias
+
+O Ícaro utiliza uma arquitetura de processamento de linguagem natural (NLP) e síntese de voz (TTS) para interagir com o usuário:
+
+| Componente | Tecnologia | Finalidade |
+| :--- | :--- | :--- |
+| **Reconhecimento de Fala (STT)** | Web Speech API | Converte a voz do usuário em texto (comando). |
+| **Síntese de Fala (TTS)** | `SpeechSynthesisUtterance` | Converte a resposta do sistema em voz (Voz do Ícaro). |
+| **Processamento de Comando** | FastAPI (`/ia/query`) | Recebe o comando em texto e o processa. |
+| **Inteligência** | Dados Consolidados + Groq (LLM) | Utiliza dados de `grain_assessments` e `alerts` para gerar respostas e relatórios técnicos. |
+
+### 5.6 Exemplos de Comandos
+
+O Ícaro pode ser acionado por voz ou texto para realizar consultas complexas, como:
+
+*   "Ícaro, qual a temperatura e umidade do silo TESTE SILO?"
+*   "Ícaro, me fale os alertas da última hora do silo TESTE SILO."
+*   "Ícaro, gere um relatório técnico do silo TESTE SILO."
+
+### 6.3 Fluxo Icaro no Sistema
+
+                 🎤 Comando de Voz
+                          ↓
+               Icaro (STT + Interpretador)
+                          ↓
+      Backend Node.js (análises, alertas, PDFs)
+                          ↓
+            ETL FastAPI (previsões + estatística)
+                          ↓
+                     MongoDB
+                          ↓
+                Dashboard + TTS
 
 ## 6. 📊 Gráficos Utilizados no Frontend
 
@@ -220,7 +267,47 @@ API_PORT=8000
 
 ## ⚙️ Variáveis de Ambiente (Exemplo)
 
-## 11. 🏁 Conclusão
+## 📁 Estrutura do Projeto
+
+Agrosilo-APP-WEB-MAIN/
+├── .vscode/
+├── agrosilo-ts-pipeline/ (Pipeline ETL - FastAPI)
+│   ├── backend/
+│   │   ├── app/
+|   │   │   ├── analysis/
+|   │   │   ├── auth/
+|   │   │   ├── forescast_spark/
+|   │   │   ├── ia/
+|   │   │   ├── mfa/
+|   |   | 
+│   │   ├── .env
+│   │   ├── package-lock.json
+│   │   ├── package.json
+│   │   ├── requirements.txt
+│   │   └── run.py
+├── backend/ (Backend Principal - Node.js)
+│   ├── assets/
+│   ├── config/
+│   ├── jobs/
+│   ├── middleware/
+│   ├── models/
+│   ├── node_modules/
+│   ├── routes/
+│   ├── services/
+│   ├── .env
+│   ├── package-lock.json
+│   ├── package.json
+│   └── server.js
+├── frontend/ (Frontend - React.js)
+│   ├── css/
+│   ├── images/
+│   ├── js/
+│   ├── pages/
+│   └── index.html
+├── .gitignore
+└── README.md
+
+## 12. 🏁 Conclusão
 
 O Agrosilo constitui uma solução completa para monitoramento inteligente de silos agrícolas, combinando IoT, ETL, análise de dados, previsões, segurança e interface moderna. A arquitetura modular permite expansão futura para:
 
