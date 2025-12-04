@@ -268,6 +268,7 @@ API_PORT=8000
 ## ⚙️ Variáveis de Ambiente (Exemplo)
 
 ## 📁 Estrutura do Projeto
+
 Agrosilo-APP-WEB-MAIN/
 ├── .vscode/                              # Configurações do VS Code
 ├── agrosilo-ts-pipeline/                 # Pipeline ETL - FastAPI
@@ -298,7 +299,7 @@ Agrosilo-APP-WEB-MAIN/
 │   ├── package-lock.json
 │   ├── package.json
 │   └── server.js                        # Ponto de entrada
-├── frontend/                            # Frontend - React.js
+├── frontend/                            # Frontend - HTML/CSS/JS
 │   ├── css/                             # Estilos CSS
 │   ├── images/                          # Imagens e ícones
 │   ├── js/                              # Scripts JavaScript
