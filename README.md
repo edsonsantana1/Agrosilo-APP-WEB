@@ -27,15 +27,74 @@ O sistema utiliza sensores conectados a dispositivos **ESP32** que enviam dados 
 
 ## 3. 🧱 Arquitetura Geral do Sistema
 
-A solução é organizada em uma arquitetura distribuída composta por módulos independentes, com dois fluxos de dados principais: o Fluxo de Monitoramento IoT e o Fluxo de Interação IA.
+A solução é organizada em uma arquitetura distribuída composta por **módulos independentes**, que se comunicam em dois fluxos principais:
 
-### Fluxo de Dados
+- **Fluxo de Monitoramento IoT** (coleta, processamento, armazenamento e visualização)
+- **Fluxo de Interação IA (Ícaro)** (STT/TTS + consultas inteligentes via IA)
 
-*    A[ESP32 + DHT11 (Coleta Local)] --> B(ThingSpeak - Buffer IoT);
-*    B --> C(FastAPI - ETL + Predict);
-*    C(FastAPI) <--> D(MongoDB - Time-Series) (Consulta de dados);
-*    D --> E(Backend Node.js - Auth, Alertas);
-*    E --> F(Frontend - STT/TTS) <--> C(FastAPI - ETL + Predict - /ia/query);
+---
+
+### 🔷 Fluxo de Dados – Visão Geral
+
+```text
+A ──► ESP32 + DHT11
+      (Coleta Local)
+         │
+         ▼
+B ──► ThingSpeak
+      (Buffer IoT)
+         │
+         ▼
+C ──► FastAPI - ETL + Predict
+      (Limpeza, Normalização, Previsão)
+         │
+         │ Consulta / Escrita
+         ▼
+D ◄──► MongoDB (Time-Series)
+         │
+         ▼
+E ──► Backend Node.js
+      (Auth, Alertas, API Gateway)
+         │
+         ▼
+F ──► Frontend Web
+      (Dashboard + STT/TTS)
+```
+
+---
+
+### 🤖 Integração com IA – Ícaro (Fluxo de Interação)
+
+```text
+Frontend (STT/TTS)
+     │   ▲
+     ▼   │
+ Ícaro – Assistente de Voz
+     │ Envia intenção
+     ▼
+FastAPI - /ia/query
+     │ Acessa dados consolidados
+     ▼
+MongoDB (Leituras + Análises)
+     │ Retorna resposta estruturada
+     ▼
+Frontend (fala por TTS + exibição)
+```
+
+---
+
+### 🧩 Resumo dos Componentes
+
+| Componente | Função |
+|-----------|--------|
+| **ESP32 + DHT11** | Coleta física de temperatura e umidade. |
+| **ThingSpeak** | Buffer MQTT para armazenamento intermediário de dados IoT. |
+| **FastAPI – ETL + Predict** | Limpeza, normalização, agregações e previsões (scikit/Spark). |
+| **MongoDB (Time-Series)** | Armazenamento otimizado para séries temporais. |
+| **Backend Node.js** | API Gateway, autenticação, MFA, alertas e proxy IA. |
+| **Frontend (HTML/CSS/JS)** | Dashboard, análises e assistente Ícaro (STT/TTS). |
+
+
 
 
 **Componentes do Fluxo:**
@@ -50,24 +109,107 @@ A solução é organizada em uma arquitetura distribuída composta por módulos 
 
 ## 4. 🧩 Arquitetura Completa do Sistema
 
-A arquitetura do sistema segue um fluxo modular e sequencial:
+A arquitetura do Agrosilo é composta por dois grandes fluxos principais:  
+**Fluxo de Monitoramento IoT** e **Fluxo de Interação IA (Ícaro)**, ambos integrados ao Pipeline ETL (FastAPI).
 
-Fluxo de Monitoramento
-            A[IoT (ESP32/DHT11)] --> B(ThingSpeak);
-            B --> C(FastAPI - ETL Pipeline);
-            C --> D(MongoDB - Time-series + índices);
-           D --> E(Node.js Backend);
-            E --> F(Frontend);
-Fluxo de Interação IA (Ícaro)
-            F --> G(FastAPI - /ia/query);
-            G --> D;
-            D --> G;
-            G --> F;
-FastAPI - ETL
-            C --> C1(limpeza/normalização);
-            C --> C2(cálculos estatísticos);
-            C --> C3(agregações / degrau térmico);
-            C --> C4(Previsão - Modelo Linear);
+---
+
+### 🔷 Fluxo de Monitoramento IoT
+
+```text
+┌──────────────────────────┐
+│   IoT (ESP32 + DHT11)    │
+└──────────────┬───────────┘
+               │ Coleta dos dados
+               ▼
+┌──────────────────────────┐
+│     ThingSpeak (MQTT)    │
+└──────────────┬───────────┘
+               │ Buffer IoT
+               ▼
+┌──────────────────────────┐
+│  FastAPI - ETL Pipeline  │
+└──────────────┬───────────┘
+               │ Processamento / Previsões
+               ▼
+┌──────────────────────────┐
+│ MongoDB (Time-Series DB) │
+└──────────────┬───────────┘
+               │ Dados consolidados
+               ▼
+┌──────────────────────────┐
+│  Backend Node.js API     │
+└──────────────┬───────────┘
+               │ Rotas / Alertas / Autenticação
+               ▼
+┌──────────────────────────┐
+│      Frontend Web        │
+└──────────────────────────┘
+```
+
+---
+
+### 🤖 Fluxo de Interação IA (Ícaro)
+
+```text
+┌──────────────────────────┐
+│      Frontend (STT/TTS)  │
+│     Assistente Ícaro     │
+└──────────────┬───────────┘
+               │ Envio de comando em texto/voz
+               ▼
+┌──────────────────────────┐
+│ FastAPI - /ia/query      │
+│ Interpretação + NLP      │
+└──────────────┬───────────┘
+               │ Consulta dos dados
+               ▼
+┌──────────────────────────┐
+│ MongoDB (Time-Series DB) │
+└──────────────┬───────────┘
+               │ Resultados processados
+               ▼
+┌──────────────────────────┐
+│ FastAPI - IA Responder   │
+└──────────────┬───────────┘
+               │ Resposta estruturada
+               ▼
+┌──────────────────────────┐
+│  Frontend + Ícaro (TTS)  │
+│     Resposta por voz     │
+└──────────────────────────┘
+```
+
+---
+
+### 🔧 Pipeline Interno do ETL FastAPI
+
+```text
+┌──────────────────────────┐
+│  FastAPI - ETL Pipeline  │
+└──────────────┬───────────┘
+               ▼
+       ┌────────────────┐
+       │ C1 - Limpeza e │
+       │  Normalização  │
+       └───────┬────────┘
+               ▼
+       ┌────────────────┐
+       │ C2 - Cálculos  │
+       │  Estatísticos  │
+       └───────┬────────┘
+               ▼
+       ┌────────────────┐
+       │ C3 - Agregações│
+       │ e Degrau Térm. │
+       └───────┬────────┘
+               ▼
+       ┌────────────────┐
+       │ C4 - Previsão  │
+       │  (Linear ML)   │
+       └────────────────┘
+```
+
 
 ## 5. 🛠 Tecnologias Utilizadas
 
@@ -199,56 +341,87 @@ O sistema implementa um robusto esquema de segurança:
 
 A solução utiliza dois ambientes independentes (`backend/.env` e `agrosilo-ts-pipeline/.env`).
 
-#### 9.1 Backend (`backend/.env`)
+## 9. 🔧 Variáveis de Ambiente (.env)
 
-dotenv
-#### ===== MongoDB =====
-#### MONGODB_URI=mongodb+srv://<usuario>:<senha>@host/Agrosilo
-#### MONGODB_DB=agrosilo
+A solução utiliza dois ambientes independentes:  
+- `backend/.env`  
+- `agrosilo-ts-pipeline/.env`
 
-#### ===== ThingSpeak =====
-#### THINGSPEAK_CHANNEL_ID=111111
-#### THINGSPEAK_READ_API_KEY=XXXXXX
-#### TS_FIELD_TEMP=1
-#### TS_FIELD_HUM=2
-#### TS_FETCH_RESULTS=100
+---
 
-#### ===== Email =====
-#### EMAIL_ENABLED=true
-#### EMAIL_USER=xxxx@gmail.com
-#### EMAIL_PASS=xxxx xxxx xxxx
-#### EMAIL_INTERVAL_CRITICAL_MS=120000
-#### EMAIL_INTERVAL_WARNING_MS=300000
-#### EMAIL_INTERVAL_CAUTION_MS=1800000
+### 9.1 Backend (`backend/.env`)
 
-#### ===== Notificador =====
-#### ALERT_NOTIFIER_TICK_MS=60000
+```env
+####################################
+# ========== MongoDB ==============
+####################################
+MONGODB_URI=mongodb+srv://<usuario>:<senha>@host/Agrosilo
+MONGODB_DB=agrosilo
 
-#### ===== Execução =====
-#### POLL_SECONDS=15
-#### API_PORT=8001
-#### API_HOST=0.0.0.0
+####################################
+# ========= ThingSpeak ============
+####################################
+THINGSPEAK_CHANNEL_ID=111111
+THINGSPEAK_READ_API_KEY=XXXXXX
+TS_FIELD_TEMP=1
+TS_FIELD_HUM=2
+TS_FETCH_RESULTS=100
 
-#### 9.2 ETL Pipeline (`agrosilo-ts-pipeline/.env`)
+####################################
+# ========= Email Alerts ==========
+####################################
+EMAIL_ENABLED=true
+EMAIL_USER=xxxx@gmail.com
+EMAIL_PASS=xxxx xxxx xxxx
+EMAIL_INTERVAL_CRITICAL_MS=120000
+EMAIL_INTERVAL_WARNING_MS=300000
+EMAIL_INTERVAL_CAUTION_MS=1800000
 
-dotenv
-#### ===== Mongo =====
-## MONGODB_URI=mongodb+srv://<usuario>:<senha>@host
-## MONGODB_DB=agrosilo
+####################################
+# ========= Notificador ===========
+####################################
+ALERT_NOTIFIER_TICK_MS=60000
 
-#### ===== ThingSpeak =====
-#### THINGSPEAK_URL=https://api.thingspeak.com/channels
-#### THINGSPEAK_CHANNEL_ID=111111
-#### THINGSPEAK_READ_KEY=XXXXXX
-#### THINGSPEAK_RESULTS=200
+####################################
+# ========== Execução =============
+####################################
+POLL_SECONDS=15
+API_PORT=8001
+API_HOST=0.0.0.0
+```
 
-#### ===== Forecast =====
-#### FORECAST_WINDOW_DAYS=14
-#### FORECAST_MODEL=scikit  # ou spark
+---
 
-#### ===== Execução =====
-#### API_HOST=0.0.0.0
-#### API_PORT=8000
+### 9.2 ETL Pipeline (`agrosilo-ts-pipeline/.env`)
+
+```env
+####################################
+# ========== MongoDB ==============
+####################################
+MONGODB_URI=mongodb+srv://<usuario>:<senha>@host
+MONGODB_DB=agrosilo
+
+####################################
+# ========= ThingSpeak ============
+####################################
+THINGSPEAK_URL=https://api.thingspeak.com/channels
+THINGSPEAK_CHANNEL_ID=111111
+THINGSPEAK_READ_KEY=XXXXXX
+THINGSPEAK_RESULTS=200
+
+####################################
+# ========= Forecast ==============
+####################################
+FORECAST_WINDOW_DAYS=14
+FORECAST_MODEL=scikit   # ou spark
+
+####################################
+# ========== Execução =============
+####################################
+API_HOST=0.0.0.0
+API_PORT=8000
+```
+
 
 
 ## 10. 🧪 Funcionalidades Técnicas Concluídas
@@ -265,48 +438,48 @@ dotenv
 *   ✔ Arquitetura escalável
 *   ✔ Deploy CI/CD Render + Netlify
 
-## ⚙️ Variáveis de Ambiente (Exemplo)
+## 11. 📁 Estrutura do Projeto
 
-## 📁 Estrutura do Projeto
-
+```text
 Agrosilo-APP-WEB-MAIN/
-├── .vscode/                              # Configurações do VS Code
-├── agrosilo-ts-pipeline/                 # Pipeline ETL - FastAPI
+├── .vscode/                           # Configurações do VS Code
+├── agrosilo-ts-pipeline/              # Pipeline ETL - FastAPI
 │   ├── backend/
 │   │   ├── app/
-│   │   │   ├── analysis/                # Análises de dados
-│   │   │   ├── auth/                    # Autenticação
-│   │   │   ├── forescast_spark/         # Previsões com Spark
-│   │   │   ├── ia/                      # Inteligência Artificial
-│   │   │   ├── mfa/                     # Autenticação Multi-Fator
-│   │   │   └── ...                      # Outros módulos
-│   │   ├── .env                         # Variáveis de ambiente
+│   │   │   ├── analysis/              # Análises de dados
+│   │   │   ├── auth/                  # Autenticação
+│   │   │   ├── forescast_spark/       # Previsões com Spark
+│   │   │   ├── ia/                    # Inteligência Artificial / Ícaro
+│   │   │   ├── mfa/                   # Autenticação Multi-Fator
+│   │   │   └── ...                    # Outros módulos
+│   │   ├── .env                       # Variáveis de ambiente (ETL)
 │   │   ├── package-lock.json
 │   │   ├── package.json
-│   │   ├── requirements.txt             # Dependências Python
-│   │   └── run.py                       # Ponto de entrada
+│   │   ├── requirements.txt           # Dependências Python
+│   │   └── run.py                     # Ponto de entrada FastAPI
 │   └── ...
-├── backend/                              # Backend Principal - Node.js
-│   ├── assets/                          # Recursos estáticos
-│   ├── config/                          # Configurações
-│   ├── jobs/                            # Tarefas agendadas
-│   ├── middleware/                      # Middlewares
-│   ├── models/                          # Modelos de dados
-│   ├── node_modules/                    # Dependências Node.js
-│   ├── routes/                          # Rotas da API
-│   ├── services/                        # Serviços de negócio
-│   ├── .env                             # Variáveis de ambiente
+├── backend/                           # Backend Principal - Node.js
+│   ├── assets/                        # Recursos estáticos
+│   ├── config/                        # Configurações
+│   ├── jobs/                          # Tarefas agendadas (cron)
+│   ├── middleware/                    # Middlewares
+│   ├── models/                        # Modelos de dados (Mongoose)
+│   ├── node_modules/                  # Dependências Node.js
+│   ├── routes/                        # Rotas da API
+│   ├── services/                      # Serviços de negócio
+│   ├── .env                           # Variáveis de ambiente (Backend)
 │   ├── package-lock.json
 │   ├── package.json
-│   └── server.js                        # Ponto de entrada
-├── frontend/                            # Frontend - HTML/CSS/JS
-│   ├── css/                             # Estilos CSS
-│   ├── images/                          # Imagens e ícones
-│   ├── js/                              # Scripts JavaScript
-│   ├── pages/                           # Páginas da aplicação
-│   └── index.html                       # Página principal
-├── .gitignore                           # Arquivos ignorados pelo Git
-└── README.md                            # Documentação principal
+│   └── server.js                      # Ponto de entrada Node.js
+├── frontend/                          # Frontend - HTML/CSS/JS
+│   ├── css/                           # Estilos CSS
+│   ├── images/                        # Imagens e ícones
+│   ├── js/                            # Scripts JavaScript (dashboard, Ícaro, etc.)
+│   ├── pages/                         # Páginas da aplicação
+│   └── index.html                     # Página principal
+├── .gitignore                         # Arquivos ignorados pelo Git
+└── README.md                          # Documentação principal
+```
 
 ## 12. 🏁 Conclusão
 
