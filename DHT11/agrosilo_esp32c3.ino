@@ -10,7 +10,258 @@
 
 // ---- Bibliotecas ----
 #include <WiFi.h>
+#include <DHT.h>// =================================================================================== 
+// Projeto: Monitor de Clima para Armazenagem de Soja com ESP32-C3, DHT11 e ThingSpeak
+// Autor:  Edson Santana Alves
+// Versão: 2.8 (WiFi duplo + LED azul indicando conexão)
+// ===================================================================================
+
+// ---- Bibliotecas ----
+#include <WiFi.h>
 #include <DHT.h>
+#include <ThingSpeak.h>
+#include "chaves.h"   // Channel ID + API Key
+
+// ---- Serial / Debug ----
+#define SERIAL_BAUD_RATE 115200
+
+// ---- LED Azul da ESP32-C3 ----
+#define LED_WIFI 8   // LED azul interno (a maioria das ESP32-C3 usa GPIO 8)
+
+// ---- Configurações das Redes Wi-Fi ----
+const char* ssid1     = "SENAC-Mesh";   // Rede principal
+const char* password1 = "09080706";
+
+const char* ssid2     = "S24 FE Edson"; // Rede alternativa
+const char* password2 = "12345678";
+
+// ---- Sensor DHT ----
+#define DHT_PIN  4
+#define DHT_TYPE DHT11
+
+// ===================================================================================
+// PARÂMETROS ARMAZENAGEM DE SOJA (Embrapa)
+// ===================================================================================
+#define TEMP_IDEAL_MAX       15.0
+#define TEMP_MODERADO_MIN    20.0
+#define TEMP_MODERADO_MAX    30.0
+#define TEMP_CRITICO_MIN     40.0
+
+#define HUMI_IDEAL_MAX       13.0
+#define HUMI_MODERADO_MIN    13.0
+#define HUMI_MODERADO_MAX    16.0
+#define HUMI_CRITICO_MIN     16.0
+
+#define NUM_LEITURAS         6
+#define DELAY_ENTRE_LEITURAS 2000
+
+// ---- Campos do ThingSpeak ----
+#define THINGSPEAK_FIELD_TEMP     1
+#define THINGSPEAK_FIELD_HUMI     2
+#define THINGSPEAK_FIELD_STATUS   3
+#define THINGSPEAK_FIELD_HUMI_MIN 4
+
+#define HTTP_STATUS_OK 200
+
+// ---- Controle de envio ----
+const long SEND_INTERVAL = 30000;
+unsigned long lastSendTime = 0;
+
+// ---- Objetos globais ----
+DHT dht(DHT_PIN, DHT_TYPE);
+WiFiClient client;
+
+// ===================================================================================
+// ENUM DE STATUS
+// ===================================================================================
+typedef enum {
+    STATUS_IDEAL = 1,
+    STATUS_MODERADO = 2,
+    STATUS_CRITICO = 3,
+    STATUS_ERRO_SENSOR = 4
+} StatusArmazenamento;
+
+// ===================================================================================
+// FUNÇÃO: CONEXÃO Wi-Fi COM 2 REDES + LED AZUL
+// ===================================================================================
+void connectWiFi() {
+    WiFi.mode(WIFI_STA);
+
+    digitalWrite(LED_WIFI, LOW);  // LED começa apagado
+
+    // Tentando rede principal
+    Serial.println("\n[WIFI] Tentando conectar à REDE PRINCIPAL...");
+    WiFi.begin(ssid1, password1);
+
+    int retries = 0;
+    while (WiFi.status() != WL_CONNECTED && retries < 30) {
+        delay(500);
+        Serial.print(".");
+        retries++;
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\n[WIFI] Conectado à REDE PRINCIPAL!");
+        digitalWrite(LED_WIFI, HIGH);   // LIGA O LED
+        Serial.print("[WIFI] IP: ");
+        Serial.println(WiFi.localIP());
+        return;
+    }
+
+    // Tentando rede alternativa
+    Serial.println("\n[WIFI] Falha na principal. Tentando REDE ALTERNATIVA...");
+    WiFi.begin(ssid2, password2);
+
+    retries = 0;
+    while (WiFi.status() != WL_CONNECTED && retries < 30) {
+        delay(500);
+        Serial.print(".");
+        retries++;
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\n[WIFI] Conectado à REDE ALTERNATIVA!");
+        digitalWrite(LED_WIFI, HIGH);   // LIGA O LED
+        Serial.print("[WIFI] IP: ");
+        Serial.println(WiFi.localIP());
+        return;
+    }
+
+    // Falhou nas duas
+    Serial.println("\n[WIFI] ERRO: Nenhuma rede conectou!");
+    digitalWrite(LED_WIFI, LOW);  // LED APAGADO
+    Serial.println("[SISTEMA] Reiniciando em 5 segundos...");
+    delay(5000);
+    ESP.restart();
+}
+
+// ===================================================================================
+// CLASSIFICAÇÃO DAS CONDIÇÕES
+// ===================================================================================
+StatusArmazenamento classificarCondicoes(float temperatura, float umidade) {
+
+    if (temperatura >= TEMP_CRITICO_MIN) return STATUS_CRITICO;
+    if (umidade > HUMI_CRITICO_MIN) return STATUS_CRITICO;
+
+    if ((temperatura >= TEMP_MODERADO_MIN && temperatura <= TEMP_MODERADO_MAX) ||
+        (umidade >= HUMI_MODERADO_MIN && umidade <= HUMI_MODERADO_MAX)) {
+        return STATUS_MODERADO;
+    }
+
+    return STATUS_IDEAL;
+}
+
+// ===================================================================================
+// LEITURA DO SENSOR (múltiplas amostras)
+// ===================================================================================
+bool lerSensor(float* temperatura, float* umidade) {
+    float tempSum = 0, humiSum = 0;
+    int tempCount = 0, humiCount = 0;
+
+    Serial.println("[SENSOR] Coletando leituras...");
+
+    for (int i = 0; i < NUM_LEITURAS; i++) {
+        float t = dht.readTemperature();
+        float h = dht.readHumidity();
+
+        if (!isnan(t) && t >= -10 && t <= 60) { tempSum += t; tempCount++; }
+        if (!isnan(h) && h >= 0 && h <= 100) { humiSum += h; humiCount++; }
+
+        delay(DELAY_ENTRE_LEITURAS);
+    }
+
+    *temperatura = (tempCount > 0) ? (tempSum / tempCount) : NAN;
+    *umidade     = (humiCount > 0) ? (humiSum / humiCount) : NAN;
+
+    Serial.print("[SENSOR] Leituras válidas - Temp: ");
+    Serial.print(tempCount);
+    Serial.print("/");
+    Serial.print(NUM_LEITURAS);
+    Serial.print(", Humi: ");
+    Serial.print(humiCount);
+    Serial.print("/");
+    Serial.println(NUM_LEITURAS);
+
+    return (!isnan(*temperatura) && !isnan(*umidade));
+}
+
+// ===================================================================================
+// DIAGNÓSTICO DO THINGSPEAK
+// ===================================================================================
+void printThingSpeakStatus(int statusCode) {
+    if (statusCode == HTTP_STATUS_OK) {
+        Serial.println("[THINGSPEAK] OK - Dados enviados");
+    } else {
+        Serial.print("[THINGSPEAK] ERRO: ");
+        Serial.println(statusCode);
+    }
+}
+
+// ===================================================================================
+// SETUP
+// ===================================================================================
+void setup() {
+    Serial.begin(SERIAL_BAUD_RATE);
+    delay(1000);
+
+    Serial.println("\n=== MONITOR DE ARMAZENAGEM DE SOJA ===");
+
+    pinMode(LED_WIFI, OUTPUT);      // LED azul configurado
+    digitalWrite(LED_WIFI, LOW);    // Apagado no início
+
+    connectWiFi();
+    dht.begin();
+    ThingSpeak.begin(client);
+
+    Serial.println("[SISTEMA] Inicialização concluída");
+}
+
+// ===================================================================================
+// LOOP PRINCIPAL
+// ===================================================================================
+void loop() {
+
+    if (millis() - lastSendTime < SEND_INTERVAL) return;
+
+    Serial.println("\n--- NOVO CICLO DE LEITURA ---");
+
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[WIFI] Reconectando...");
+        digitalWrite(LED_WIFI, LOW);  // LED desliga até reconectar
+        connectWiFi();
+    }
+
+    float temperatura, umidade;
+
+    if (!lerSensor(&temperatura, &umidade)) {
+        Serial.println("[ERRO] Falha leitura DHT");
+        ThingSpeak.setField(THINGSPEAK_FIELD_STATUS, STATUS_ERRO_SENSOR);
+        ThingSpeak.writeFields(THINGSPEAK_CHANNEL_ID, thingspeakApiKey);
+        lastSendTime = millis();
+        return;
+    }
+
+    StatusArmazenamento status = classificarCondicoes(temperatura, umidade);
+
+    Serial.print("[DADOS] Temp: ");
+    Serial.print(temperatura);
+    Serial.print("°C  Umidade: ");
+    Serial.print(umidade);
+    Serial.print("%  Status: ");
+    Serial.println(status);
+
+    // Campos do ThingSpeak
+    ThingSpeak.setField(THINGSPEAK_FIELD_TEMP, temperatura);
+    ThingSpeak.setField(THINGSPEAK_FIELD_HUMI, umidade);
+    ThingSpeak.setField(THINGSPEAK_FIELD_STATUS, (int)status);
+    ThingSpeak.setField(THINGSPEAK_FIELD_HUMI_MIN, 13.0f);
+
+    int statusCode = ThingSpeak.writeFields(THINGSPEAK_CHANNEL_ID, thingspeakApiKey);
+    printThingSpeakStatus(statusCode);
+
+    lastSendTime = millis();
+    Serial.println("[CICLO] Concluído.");
+}
 #include <ThingSpeak.h>
 #include "chaves.h"   // <<< Coloque seu CHANNEL_ID e WRITE API KEY (thingspeakApiKey) aqui
 
