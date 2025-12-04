@@ -268,44 +268,44 @@ API_PORT=8000
 ## ⚙️ Variáveis de Ambiente (Exemplo)
 
 ## 📁 Estrutura do Projeto
-
 Agrosilo-APP-WEB-MAIN/
-├── .vscode/
-├── agrosilo-ts-pipeline/ (Pipeline ETL - FastAPI)
+├── .vscode/                              # Configurações do VS Code
+├── agrosilo-ts-pipeline/                 # Pipeline ETL - FastAPI
 │   ├── backend/
 │   │   ├── app/
-|   │   │   ├── analysis/
-|   │   │   ├── auth/
-|   │   │   ├── forescast_spark/
-|   │   │   ├── ia/
-|   │   │   ├── mfa/
-|   |   | 
-│   │   ├── .env
+│   │   │   ├── analysis/                # Análises de dados
+│   │   │   ├── auth/                    # Autenticação
+│   │   │   ├── forescast_spark/         # Previsões com Spark
+│   │   │   ├── ia/                      # Inteligência Artificial
+│   │   │   ├── mfa/                     # Autenticação Multi-Fator
+│   │   │   └── ...                      # Outros módulos
+│   │   ├── .env                         # Variáveis de ambiente
 │   │   ├── package-lock.json
 │   │   ├── package.json
-│   │   ├── requirements.txt
-│   │   └── run.py
-├── backend/ (Backend Principal - Node.js)
-│   ├── assets/
-│   ├── config/
-│   ├── jobs/
-│   ├── middleware/
-│   ├── models/
-│   ├── node_modules/
-│   ├── routes/
-│   ├── services/
-│   ├── .env
+│   │   ├── requirements.txt             # Dependências Python
+│   │   └── run.py                       # Ponto de entrada
+│   └── ...
+├── backend/                              # Backend Principal - Node.js
+│   ├── assets/                          # Recursos estáticos
+│   ├── config/                          # Configurações
+│   ├── jobs/                            # Tarefas agendadas
+│   ├── middleware/                      # Middlewares
+│   ├── models/                          # Modelos de dados
+│   ├── node_modules/                    # Dependências Node.js
+│   ├── routes/                          # Rotas da API
+│   ├── services/                        # Serviços de negócio
+│   ├── .env                             # Variáveis de ambiente
 │   ├── package-lock.json
 │   ├── package.json
-│   └── server.js
-├── frontend/ (Frontend - React.js)
-│   ├── css/
-│   ├── images/
-│   ├── js/
-│   ├── pages/
-│   └── index.html
-├── .gitignore
-└── README.md
+│   └── server.js                        # Ponto de entrada
+├── frontend/                            # Frontend - React.js
+│   ├── css/                             # Estilos CSS
+│   ├── images/                          # Imagens e ícones
+│   ├── js/                              # Scripts JavaScript
+│   ├── pages/                           # Páginas da aplicação
+│   └── index.html                       # Página principal
+├── .gitignore                           # Arquivos ignorados pelo Git
+└── README.md                            # Documentação principal
 
 ## 12. 🏁 Conclusão
 
