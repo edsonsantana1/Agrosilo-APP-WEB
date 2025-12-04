@@ -50,24 +50,24 @@ A solução é organizada em uma arquitetura distribuída composta por módulos 
 
 ## 4. 🧩 Arquitetura Completa do Sistema
 
-*    A arquitetura do sistema segue um fluxo modular e sequencial:
+A arquitetura do sistema segue um fluxo modular e sequencial:
 
-*   Fluxo de Monitoramento
-*            A[IoT (ESP32/DHT11)] --> B(ThingSpeak);
-*            B --> C(FastAPI - ETL Pipeline);
-*            C --> D(MongoDB - Time-series + índices);
-*           D --> E(Node.js Backend);
-*            E --> F(Frontend);
-*    Fluxo de Interação IA (Ícaro)
-*            F --> G(FastAPI - /ia/query);
-*            G --> D;
-*            D --> G;
-*            G --> F;
-*    FastAPI - ETL
-*            C --> C1(limpeza/normalização);
-*            C --> C2(cálculos estatísticos);
-*            C --> C3(agregações / degrau térmico);
-*            C --> C4(Previsão - Modelo Linear);
+Fluxo de Monitoramento
+            A[IoT (ESP32/DHT11)] --> B(ThingSpeak);
+            B --> C(FastAPI - ETL Pipeline);
+            C --> D(MongoDB - Time-series + índices);
+           D --> E(Node.js Backend);
+            E --> F(Frontend);
+Fluxo de Interação IA (Ícaro)
+            F --> G(FastAPI - /ia/query);
+            G --> D;
+            D --> G;
+            G --> F;
+FastAPI - ETL
+            C --> C1(limpeza/normalização);
+            C --> C2(cálculos estatísticos);
+            C --> C3(agregações / degrau térmico);
+            C --> C4(Previsão - Modelo Linear);
 
 ## 5. 🛠 Tecnologias Utilizadas
 
