@@ -11,6 +11,12 @@ const JWT_ALG = 'HS256';
 // Habilita fluxo MFA por padrão (defina REQUIRE_MFA=false no .env para desabilitar)
 const REQUIRE_MFA = (process.env.REQUIRE_MFA || 'true').toLowerCase() !== 'false';
 
+
+// Usuário que pode logar sem MFA (ex.: conta de demonstração)
+const MFA_BYPASS_EMAIL = (process.env.MFA_BYPASS_EMAIL || '').toLowerCase().trim();
+
+
+
 // ========= Helpers =========
 function issueToken(payload, opts = {}) {
   return jwt.sign(payload, JWT_SECRET, { algorithm: JWT_ALG, expiresIn: '24h', ...opts });
@@ -78,6 +84,25 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'Perfil não autorizado para este usuário.' });
     }
 
+    // ===== BYPASS MFA APENAS PARA O USUÁRIO DEFINIDO NO .ENV =====
+    if (
+      MFA_BYPASS_EMAIL &&
+      user.email &&
+      user.email.toLowerCase().trim() === MFA_BYPASS_EMAIL
+    ) {
+      // Gera token direto, sem passar pela tela de MFA
+      const token = issueToken({
+        sub: String(user._id),
+        userId: String(user._id),
+        email: user.email,
+        role: user.role || 'user'
+      });
+
+      // Importante: não mandar "mfa" aqui, para o frontend tratar como login normal
+      return res.json({ token, user: toSafeUser(user) });
+    }
+
+    // ===== Fluxo normal: MFA obrigatório para os demais usuários =====
     if (REQUIRE_MFA) {
       const mfa = user.mfa || {};
       if (mfa.enabled && mfa.secret) {
@@ -94,7 +119,7 @@ router.post('/login', async (req, res) => {
       return res.json({ mfa: 'provision', tempToken });
     }
 
-    // Sem MFA (REQUIRE_MFA=false)
+    // Sem MFA (REQUIRE_MFA=false) → comportamento atual
     const token = issueToken({
       sub: String(user._id),
       userId: String(user._id),
@@ -107,5 +132,6 @@ router.post('/login', async (req, res) => {
     return res.status(500).json({ error: 'Erro ao processar login.' });
   }
 });
+
 
 module.exports = router;
