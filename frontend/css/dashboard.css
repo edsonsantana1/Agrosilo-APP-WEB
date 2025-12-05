@@ -52,8 +52,13 @@
     transition: all var(--transition-fast);
     font-weight: 500;
     position: relative;
+
+    /* 👇 Adicione essas duas linhas */
+    white-space: nowrap;   /* impede o texto de quebrar em 2 linhas */
+    flex-shrink: 0;        /* evita o botão “apertar” e forçar quebra */
 }
 
+ 
 .nav-item:hover {
     background: rgba(255, 255, 255, 0.1);
     color: white;
@@ -503,7 +508,7 @@
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 4px 0;
-}
+} 
 
 .alert-description {
     font-size: 13px;
@@ -736,3 +741,4 @@
     }
 }
 
+ 
