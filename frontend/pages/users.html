@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Usuários – Agrosilo</title>
 
-  <link rel="stylesheet" href="../css/dashboard.css" />
   <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
 </head>
 <body class="bg-app">
@@ -14,30 +14,36 @@
   <!-- HEADER -->
   <header class="header">
     <div class="header-content">
-      <a class="logo" href="./dashboard.html">
+      <div class="logo">
         <i class="fas fa-warehouse"></i>
-        <span>Agrosilo</span>
-      </a>
+        <h1>Agrosilo</h1>
+      </div>
 
-      <nav class="nav">
-        <a href="./dashboard.html" class="nav-item">
-          <i class="fas fa-tachometer-alt"></i> Dashboard
+      <nav class="nav-menu">
+        <a href="dashboard.html" class="nav-item">
+          <i class="fas fa-tachometer-alt"></i>
+          Dashboard
         </a>
-        <a href="./alerts.html" class="nav-item">
-          <i class="fas fa-bell"></i> Alertas
-          <span id="alertsBadge" class="nav-badge" style="display:none">0</span>
+        <a href="alerts.html" class="nav-item">
+          <i class="fas fa-exclamation-triangle"></i>
+          Alertas
+          <span class="alert-badge" id="alertCount">0</span>
         </a>
-        <a href="./analysis.html" class="nav-item">
-          <i class="fas fa-chart-line"></i> Análise
+        <a href="analysis.html" class="nav-item">
+          <i class="fas fa-chart-line"></i>
+          Análise
         </a>
-        <a href="./silos.html" class="nav-item">
-          <i class="fas fa-warehouse"></i> Silos
+        <a href="silos.html" class="nav-item">
+          <i class="fas fa-warehouse"></i>
+          Silos
         </a>
-        <a href="./users.html" class="nav-item active" id="usersMenuItem">
-          <i class="fas fa-users"></i> Usuários
+        <a href="users.html" class="nav-item active" id="usersMenuItem">
+          <i class="fas fa-users"></i>
+          Usuários
         </a>
         <a href="ia.html" class="nav-item">
-          <i class="fas fa-robot"></i>Assistente de Voz IA
+          <i class="fas fa-robot"></i>
+          Assistente de Voz IA
         </a>
       </nav>
 
@@ -47,11 +53,13 @@
           <span id="userRole" class="user-role">Administrador</span>
         </div>
         <button class="btn btn-outline" onclick="logout()">
-          <i class="fas fa-sign-out-alt"></i> Sair
+          <i class="fas fa-sign-out-alt"></i>
+          Sair
         </button>
       </div>
     </div>
   </header>
+
 
   <!-- CONTEÚDO -->
   <main class="main-content">
@@ -213,36 +221,6 @@
       </div>
     </div>
   </div>
-
-  <style>
-    .header { background: var(--header-gradient, linear-gradient(90deg,#2f8f3d,#3fb952)); color:#fff; }
-    .header-content{ display:flex; align-items:center; justify-content:space-between; gap:24px; padding:16px 24px; max-width:1200px; margin:0 auto; }
-    .logo{ display:flex; align-items:center; gap:10px; text-decoration:none; }
-    .logo i, .logo span{ color:#fff !important; }
-    .logo span{ font-weight:800; font-size:1.8rem; }
-    .nav{ display:flex; align-items:center; gap:12px; }
-    .nav-item{ display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:10px; color:#fff; text-decoration:none; opacity:.95; }
-    .nav-item:hover{ opacity:1; background:rgba(255,255,255,.1); }
-    .nav-item.active{ background:rgba(255,255,255,.25); }
-    .header-actions{ display:flex; align-items:center; gap:12px; }
-    .user-info{ display:flex; flex-direction:column; align-items:flex-end; line-height:1.1; }
-    .user-role{ font-size:.8rem; opacity:.9; color:#fff; }
-    .bg-app { background:#f6f7f9; }
-    .container{ max-width:1200px; margin:0 auto; padding:24px; }
-    .page-title h1{ margin:0 0 6px 0; font-size:2.2rem; }
-    .page-subtitle{ margin:0; color:#6b7280; }
-    .page-actions{ display:flex; justify-content:flex-end; margin:16px 0; }
-    .table-responsive{ overflow:auto; }
-    .modal{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.35); z-index:50 }
-    .modal-content{ background:#fff; border-radius:12px; width:min(640px,92vw); box-shadow:var(--shadow-large) }
-    .modal-header,.modal-footer{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border-color) }
-    .modal-footer{ border-top:1px solid var(--border-color); border-bottom:0 }
-    .modal-body{ padding:20px }
-    .form-grid{ display:grid; gap:12px; grid-template-columns: repeat(2,1fr) }
-    .form-grid .form-group{ display:flex; flex-direction:column; gap:6px }
-    .form-grid input, .form-grid select{ padding:10px 12px; border:1px solid var(--border-color); border-radius:8px }
-    @media (max-width: 640px){ .form-grid{ grid-template-columns:1fr } }
-  </style>
 
   <script src="../js/config.js?v=7" defer></script>
   <script src="../js/auth.js?v=7" defer></script>
