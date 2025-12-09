@@ -83,9 +83,31 @@
     }
   }
 
+    // ---------- Título dinâmico da Série Temporal ----------
+    const seriesTitleEl = document.getElementById("seriesTitle");
+
+    const sensorTitleMap = {
+      temperature: "Série Temporal de Temperatura",
+      humidity: "Série Temporal de Umidade",
+      pressure: "Série Temporal de Pressão Atmosférica",
+      co2: "Série Temporal de Gás CO₂"
+    };
+
+    function updateSeriesTitle() {
+      const type = document.getElementById("sensorTypeSelect")?.value || "temperature";
+      
+      if (!seriesTitleEl) return; // <-- evita erro se não achar o elemento
+      seriesTitleEl.textContent = sensorTitleMap[type] || "Série Temporal";
+    }
+
+
+
   // ---------- UI ----------
   function wireUI() {
     const rangeSel = document.getElementById("dateRangeSelect");
+        // Atualizar título quando trocar tipo de sensor
+    const sensorSel = document.getElementById("sensorTypeSelect");
+    sensorSel.addEventListener("change", updateSeriesTitle);
     const customDates = document.getElementById("customDates");
     rangeSel.addEventListener("change", () => {
       if (!customDates) return;
@@ -213,6 +235,10 @@
     const siloId = document.getElementById("siloSelect")?.value;
     const sensorType = document.getElementById("sensorTypeSelect")?.value;
     const compare = document.getElementById("compareToggle")?.value === "on";
+
+    // Atualiza o título de acordo com o tipo de sensor escolhido
+    updateSeriesTitle();
+
 
     if (!siloId) {
       U.notify("warning", "Selecione um silo.");
@@ -796,6 +822,29 @@
       (sensorType === "temperature" ? ins.max_temperature : ins.max_humidity)
     );
 
+    // Explica a correlação temperatura x umidade em texto humano
+    function formatCorrelationText(corr) {
+      if (corr == null || !Number.isFinite(corr)) {
+        return "Sem correlação calculada para o período selecionado.";
+      }
+
+      const abs = Math.abs(corr);
+      let intensidade;
+      if (abs < 0.2)      intensidade = "muito fraca";
+      else if (abs < 0.4) intensidade = "fraca";
+      else if (abs < 0.7) intensidade = "moderada";
+      else if (abs < 0.9) intensidade = "forte";
+      else                intensidade = "muito forte";
+
+      const sentido = corr > 0
+        ? "positiva (quando a temperatura sobe, a umidade tende a subir também)"
+        : "negativa (quando a temperatura sobe, a umidade tende a cair)";
+
+      // Ex.: "0.37 – Correlação fraca, positiva (quando a temperatura sobe...)"
+      return `${corr.toFixed(2)} – Correlação ${intensidade}, ${sentido}.`;
+    }
+
+
     const rmse = Number(met.rmse);
     const r2   = Number(met.r2);
     const corr = (ins.temp_humi_correlation != null) ? Number(ins.temp_humi_correlation) : null;
@@ -818,9 +867,10 @@
       ? `RMSE: ${Number.isFinite(rmse)?rmse.toFixed(2):"—"} | R²: ${Number.isFinite(r2)?r2.toFixed(3):"—"}`
       : "—";
     if (elTrend) elTrend.textContent = ins.trend || "—";
-    if (elCorr)  elCorr.textContent  = (corr == null || !Number.isFinite(corr))
-      ? "—"
-      : corr.toFixed(2);
+    if (elCorr) {
+      elCorr.textContent = formatCorrelationText(corr);
+    }
+
   }
 
 

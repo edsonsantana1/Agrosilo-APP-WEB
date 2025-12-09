@@ -29,7 +29,6 @@
         <a href="analysis.html" class="nav-item active"><i class="fas a fa-chart-line"></i>Análise</a>
         <a href="silos.html" class="nav-item"><i class="fas fa-warehouse"></i>Silos</a>
         <a href="users.html" class="nav-item" id="usersMenuItem" style="display:none;"><i class="fas fa-users"></i>Usuários</a>
-        <a href="ia.html" class="nav-item"><i class="fas fa-robot"></i>Assistente de Voz IA</a>
       </nav>
 
       <div class="header-actions">
@@ -50,7 +49,8 @@
 
       <!-- Page Header -->
       <div class="page-header">
-        <h3>Visualize tendências, compare períodos e exporte relatórios técnicos.</h3>
+        <h2>Análise de Dados Históricos</h2>
+        <p>Visualize tendências, compare períodos e exporte relatórios técnicos.</p>
       </div>
 
       <!-- Filtros -->
@@ -143,7 +143,7 @@
 
       <!-- Gráfico principal (série temporal) -->
       <div class="charts-section card">
-        <div class="card-header"><h3>Série Temporal</h3></div>
+        <div class="card-header"><h3 id="seriesTitle">Série Temporal</h3></div>
         <div class="card-body" style="height:420px;">
           <canvas id="sensorChart"></canvas>
           <div id="chartEmptyState" class="empty-state" style="display:none;">
